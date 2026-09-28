@@ -1,125 +1,159 @@
 {% extends "base.html" %}
 {% block title %}In / xuất{% endblock %}
+{% block chrome_title %}In / xuất{% endblock %}
 {% block body %}
-<h1 class="page-title">In / xuất</h1>
-{% include "week_flow.html" %}
-<div class="two">
-  <div class="card">
-    <h2>Vi phạm theo lớp</h2>
-    <form class="form-grid" method="get" action="{{ url_for('xuat_loi_hs') }}">
-      <div class="field"><label>Tuần</label><select name="tuan_id">{% for week in tuans %}<option value="{{ week.id }}">Tuần {{ week.so_tuan }} · {{ week.ngay_bd or 'chưa gán ngày' }}</option>{% endfor %}</select></div>
-      <div class="toolbar">
-        <button class="btn" type="submit" name="format" value="print">Tải / In</button>
-      </div>
-    </form>
+<section class="hero-banner export-hero">
+  <div class="hero-copy">
+    <p class="hero-kicker">Bước 4 · In ấn &amp; xuất file</p>
+    <h2>In và xuất báo cáo</h2>
+    <p class="hero-line">Phiếu lớp, bảng treo tường, xếp hạng theo tuần, tháng, kỳ và cả năm</p>
   </div>
-  <div class="card">
-    <h2>Bảng treo tường</h2>
-    <form class="form-grid" method="get" action="{{ url_for('xuat_ban_in') }}">
-      <div class="field"><label>Tuần</label><select name="tuan_id">{% for week in tuans %}<option value="{{ week.id }}">Tuần {{ week.so_tuan }} · {{ week.ngay_bd or 'chưa gán ngày' }}</option>{% endfor %}</select></div>
-      <div class="toolbar">
-        <button class="btn" type="submit" name="format" value="print">Tải / In</button>
-      </div>
-    </form>
+  <div class="hero-art export-hero-flow">
+    {% include "week_flow.html" %}
   </div>
-  <div class="card">
-    <h2>Báo cáo chi đoàn</h2>
-    <form class="form-grid" method="get" action="/bao-cao/lop/in">
-      <div class="field"><label>Tuần</label><select name="tuan_id">{% for week in tuans %}<option value="{{ week.id }}">Tuần {{ week.so_tuan }} · {{ week.ngay_bd or 'chưa gán ngày' }}</option>{% endfor %}</select></div>
-      <div class="field"><label>Lớp</label><select name="lop_id">{% for lop in lops %}<option value="{{ lop.id }}">{{ lop.ten }}</option>{% endfor %}</select></div>
-      <input type="hidden" name="nam_id" value="{{ nam.id }}">
-      <div class="toolbar">
-        <button class="btn" type="submit">Tải / In</button>
-        <button class="btn ghost" type="submit" name="blank" value="1">Mẫu trắng</button>
-      </div>
-    </form>
-  </div>
-  <div class="card">
-    <h2>Tuần</h2>
-    <form class="form-grid" method="get" action="/xuat/bao-cao">
-      <input type="hidden" name="scope" value="tuan"><input type="hidden" name="model" value="monthly">
-      <div class="field"><label>Tuần</label><select name="key">{% for week in tuans %}<option value="{{ week.id }}">Tuần {{ week.so_tuan }} · {{ week.ngay_bd or 'chưa gán ngày' }}</option>{% endfor %}</select></div>
-      <div class="field"><label>Phạm vi</label><select name="cut"><option value="school">Toàn trường</option><option value="group">Nhóm</option><option value="class">Một lớp</option></select></div>
-      <div class="field"><label>Nhóm</label><input name="nhom" type="number" min="1" placeholder="khi chọn nhóm"></div>
-      <div class="field"><label>Lớp</label><select name="lop_id"><option value="">—</option>{% for lop in lops %}<option value="{{ lop.id }}">{{ lop.ten }}</option>{% endfor %}</select></div>
-      <div class="field"><label>Lấy số liệu</label><select name="view"><option value="preview">Kể cả tuần chưa công bố</option><option value="official">Chỉ tuần đã công bố</option></select></div>
-      <div class="toolbar">
-        <button class="btn" type="submit" name="format" value="print">Tải / In</button>
-      </div>
-    </form>
-  </div>
-  <div class="card">
-    <h2>Tháng</h2>
-    <form class="form-grid" method="get" action="/xuat/bao-cao">
-      <input type="hidden" name="scope" value="thang"><input type="hidden" name="model" value="monthly">
-      <div class="field"><label>Tháng</label><select name="key">{% for month in months %}<option value="{{ month.key }}">{{ month.key }} · HK{{ month.semester }}</option>{% endfor %}</select></div>
-      <div class="field"><label>Lấy số liệu</label><select name="view"><option value="official">Chỉ tuần đã công bố</option><option value="preview">Kể cả tuần chưa công bố</option></select></div>
-      <div class="toolbar">
-        <button class="btn" type="submit" name="format" value="print">Tải / In</button>
-      </div>
-    </form>
-  </div>
-  <div class="card">
-    <h2>Nửa học kỳ và học kỳ</h2>
-    <form class="form-grid" method="get" action="/xuat/bao-cao">
-      <div class="field"><label>Phạm vi</label><select name="scope" data-period-scope><option value="hk">Học kỳ</option><option value="nua">Nửa học kỳ</option></select></div>
-      <div class="field"><label>Kỳ</label><select name="key" data-period-key><option data-scope="hk" value="1">HKI</option><option data-scope="hk" value="2">HKII</option><option data-scope="nua" value="1-dau">HKI · nửa đầu</option><option data-scope="nua" value="1-sau">HKI · nửa sau</option><option data-scope="nua" value="2-dau">HKII · nửa đầu</option><option data-scope="nua" value="2-sau">HKII · nửa sau</option></select></div>
-      <div class="field"><label>Mô hình</label><select name="model" data-period-model>{% for value, label in models %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div>
-      <div class="field"><label>Lấy số liệu</label><select name="view"><option value="official">Chỉ tuần đã công bố</option><option value="preview">Kể cả tuần chưa công bố</option></select></div>
-      <div class="toolbar">
-        <button class="btn" type="submit" name="format" value="print">Tải / In</button>
-      </div>
-    </form>
-  </div>
-  <div class="card">
-    <h2>Hội học</h2>
-    <form class="form-grid" method="get" action="/xuat/bao-cao">
-      <input type="hidden" name="model" value="monthly">
-      <input type="hidden" name="scope" value="hoi_hoc" data-milestone-scope>
-      <div class="field"><label>Đợt</label>
-        <select name="key" data-milestone-key>
-          {% for moc in hoi_hoc or [] %}<option value="{{ moc.id }}" data-scope="hoi_hoc">{{ moc.ten }}</option>{% endfor %}
-          {% for moc in tam_kets or [] %}<option value="{{ moc.id }}" data-scope="tam_ket">{{ moc.ten }}</option>{% endfor %}
-          {% if tam_ket %}<option value="{{ tam_ket.id }}" data-scope="tam_ket">{{ tam_ket.ten }}</option>{% endif %}
-        </select>
-      </div>
-      <div class="field"><label>Lấy số liệu</label><select name="view"><option value="official">Chỉ tuần đã công bố</option><option value="preview">Kể cả tuần chưa công bố</option></select></div>
-      <div class="toolbar">
-        <button class="btn" type="submit" name="format" value="print">Tải / In</button>
-      </div>
-    </form>
-  </div>
-  <div class="card">
-    <h2>Cả năm — một file</h2>
-    <form class="form-grid" method="get" action="/xuat/bao-cao">
-      <input type="hidden" name="scope" value="all"><input type="hidden" name="key" value="all"><input type="hidden" name="model" value="monthly">
-      <div class="field"><label>Lấy số liệu</label><select name="view"><option value="preview">Kể cả tuần chưa công bố</option><option value="official">Chỉ tuần đã công bố</option></select></div>
-      <div class="toolbar">
-        <button class="btn" type="submit" name="format" value="print">Tải / In</button>
-      </div>
-    </form>
-  </div>
-  <div class="card">
-    <h2>Nhập file phản ánh</h2>
-    <form class="form-grid" method="post" action="/nhap-tuan/phan-anh">
+</section>
+
+<div class="export-board">
+  <section>
+    <h3 class="export-kicker">In ngay trong tuần</h3>
+    <div class="export-grid export-grid-3">
+      <article class="export-card tone-red">
+        <header class="export-card-h">
+          <span class="export-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/></svg></span>
+          <div><h2>Vi phạm theo lớp</h2><p>Danh sách lỗi học sinh của một tuần</p></div>
+        </header>
+        <form class="form-grid" method="get" action="{{ url_for('xuat_loi_hs') }}">
+          <div class="field full"><label>Tuần</label><select name="tuan_id">{% for week in tuans %}<option value="{{ week.id }}">Tuần {{ week.so_tuan }} · {{ week.ngay_bd or 'chưa gán ngày' }}</option>{% endfor %}</select></div>
+          <div class="toolbar"><button class="btn" type="submit" name="format" value="print">Tải / In</button></div>
+        </form>
+      </article>
+      <article class="export-card tone-blue">
+        <header class="export-card-h">
+          <span class="export-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M9 21V9"/></svg></span>
+          <div><h2>Bảng treo tường</h2><p>Bảng xếp hạng dán tại bảng tin</p></div>
+        </header>
+        <form class="form-grid" method="get" action="{{ url_for('xuat_ban_in') }}">
+          <div class="field full"><label>Tuần</label><select name="tuan_id">{% for week in tuans %}<option value="{{ week.id }}">Tuần {{ week.so_tuan }} · {{ week.ngay_bd or 'chưa gán ngày' }}</option>{% endfor %}</select></div>
+          <div class="toolbar"><button class="btn" type="submit" name="format" value="print">Tải / In</button></div>
+        </form>
+      </article>
+      <article class="export-card tone-green">
+        <header class="export-card-h">
+          <span class="export-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg></span>
+          <div><h2>Báo cáo chi đoàn</h2><p>Phiếu một lớp, hoặc mẫu trắng để viết tay</p></div>
+        </header>
+        <form class="form-grid" method="get" action="/bao-cao/lop/in">
+          <div class="field"><label>Tuần</label><select name="tuan_id">{% for week in tuans %}<option value="{{ week.id }}">Tuần {{ week.so_tuan }} · {{ week.ngay_bd or 'chưa gán ngày' }}</option>{% endfor %}</select></div>
+          <div class="field"><label>Lớp</label><select name="lop_id">{% for lop in lops %}<option value="{{ lop.id }}">{{ lop.ten }}</option>{% endfor %}</select></div>
+          <input type="hidden" name="nam_id" value="{{ nam.id }}">
+          <div class="toolbar">
+            <button class="btn" type="submit">Tải / In</button>
+            <button class="btn ghost" type="submit" name="blank" value="1">Mẫu trắng</button>
+          </div>
+        </form>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h3 class="export-kicker">Bảng xếp hạng</h3>
+    <div class="export-grid">
+      <article class="export-card">
+        <header class="export-card-h">
+          <span class="export-ico tone-ico-blue" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M8 2v4M16 2v4M3 10h18"/><rect width="18" height="18" x="3" y="4" rx="2"/></svg></span>
+          <div><h2>Tuần</h2><p>Toàn trường, một nhóm, hoặc một lớp</p></div>
+        </header>
+        <form class="form-grid" method="get" action="/xuat/bao-cao">
+          <input type="hidden" name="scope" value="tuan"><input type="hidden" name="model" value="monthly">
+          <div class="field"><label>Tuần</label><select name="key">{% for week in tuans %}<option value="{{ week.id }}">Tuần {{ week.so_tuan }} · {{ week.ngay_bd or 'chưa gán ngày' }}</option>{% endfor %}</select></div>
+          <div class="field"><label>Phạm vi</label><select name="cut"><option value="school">Toàn trường</option><option value="group">Nhóm</option><option value="class">Một lớp</option></select></div>
+          <div class="field"><label>Nhóm</label><input name="nhom" type="number" min="1" placeholder="khi chọn nhóm"></div>
+          <div class="field"><label>Lớp</label><select name="lop_id"><option value="">—</option>{% for lop in lops %}<option value="{{ lop.id }}">{{ lop.ten }}</option>{% endfor %}</select></div>
+          <div class="field full"><label>Lấy số liệu</label><select name="view"><option value="preview">Kể cả tuần chưa công bố</option><option value="official">Chỉ tuần đã công bố</option></select></div>
+          <div class="toolbar"><button class="btn" type="submit" name="format" value="print">Tải / In</button></div>
+        </form>
+      </article>
+      <article class="export-card">
+        <header class="export-card-h">
+          <span class="export-ico tone-ico-yellow" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 20V10M18 20V4M6 20v-4"/></svg></span>
+          <div><h2>Tháng</h2><p>Tổng hợp các tuần trong tháng đã chọn</p></div>
+        </header>
+        <form class="form-grid" method="get" action="/xuat/bao-cao">
+          <input type="hidden" name="scope" value="thang"><input type="hidden" name="model" value="monthly">
+          <div class="field"><label>Tháng</label><select name="key">{% for month in months %}<option value="{{ month.key }}">{{ month.key }} · HK{{ month.semester }}</option>{% endfor %}</select></div>
+          <div class="field"><label>Lấy số liệu</label><select name="view"><option value="official">Chỉ tuần đã công bố</option><option value="preview">Kể cả tuần chưa công bố</option></select></div>
+          <div class="toolbar"><button class="btn" type="submit" name="format" value="print">Tải / In</button></div>
+        </form>
+      </article>
+      <article class="export-card">
+        <header class="export-card-h">
+          <span class="export-ico tone-ico-purple" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg></span>
+          <div><h2>Nửa học kỳ và học kỳ</h2><p>HKI, HKII hoặc từng nửa kỳ</p></div>
+        </header>
+        <form class="form-grid" method="get" action="/xuat/bao-cao">
+          <div class="field"><label>Phạm vi</label><select name="scope" data-period-scope><option value="hk">Học kỳ</option><option value="nua">Nửa học kỳ</option></select></div>
+          <div class="field"><label>Kỳ</label><select name="key" data-period-key><option data-scope="hk" value="1">HKI</option><option data-scope="hk" value="2">HKII</option><option data-scope="nua" value="1-dau">HKI · nửa đầu</option><option data-scope="nua" value="1-sau">HKI · nửa sau</option><option data-scope="nua" value="2-dau">HKII · nửa đầu</option><option data-scope="nua" value="2-sau">HKII · nửa sau</option></select></div>
+          <div class="field"><label>Mô hình</label><select name="model" data-period-model>{% for value, label in models %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div>
+          <div class="field"><label>Lấy số liệu</label><select name="view"><option value="official">Chỉ tuần đã công bố</option><option value="preview">Kể cả tuần chưa công bố</option></select></div>
+          <div class="toolbar"><button class="btn" type="submit" name="format" value="print">Tải / In</button></div>
+        </form>
+      </article>
+      <article class="export-card">
+        <header class="export-card-h">
+          <span class="export-ico tone-ico-orange" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg></span>
+          <div><h2>Hội học</h2><p>Đợt hội học hoặc sơ kết đã cấu hình</p></div>
+        </header>
+        <form class="form-grid" method="get" action="/xuat/bao-cao">
+          <input type="hidden" name="model" value="monthly">
+          <input type="hidden" name="scope" value="hoi_hoc" data-milestone-scope>
+          <div class="field"><label>Đợt</label>
+            <select name="key" data-milestone-key>
+              {% for moc in hoi_hoc or [] %}<option value="{{ moc.id }}" data-scope="hoi_hoc">{{ moc.ten }}</option>{% endfor %}
+              {% for moc in tam_kets or [] %}<option value="{{ moc.id }}" data-scope="tam_ket">{{ moc.ten }}</option>{% endfor %}
+              {% if tam_ket %}<option value="{{ tam_ket.id }}" data-scope="tam_ket">{{ tam_ket.ten }}</option>{% endif %}
+            </select>
+          </div>
+          <div class="field"><label>Lấy số liệu</label><select name="view"><option value="official">Chỉ tuần đã công bố</option><option value="preview">Kể cả tuần chưa công bố</option></select></div>
+          <div class="toolbar"><button class="btn" type="submit" name="format" value="print">Tải / In</button></div>
+        </form>
+      </article>
+      <article class="export-card">
+        <header class="export-card-h">
+          <span class="export-ico tone-ico-green" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
+          <div><h2>Cả năm — một file</h2><p>Gom các kỳ vào một file in</p></div>
+        </header>
+        <form class="form-grid" method="get" action="/xuat/bao-cao">
+          <input type="hidden" name="scope" value="all"><input type="hidden" name="key" value="all"><input type="hidden" name="model" value="monthly">
+          <div class="field full"><label>Lấy số liệu</label><select name="view"><option value="preview">Kể cả tuần chưa công bố</option><option value="official">Chỉ tuần đã công bố</option></select></div>
+          <div class="toolbar"><button class="btn" type="submit" name="format" value="print">Tải / In</button></div>
+        </form>
+      </article>
+      <article class="export-card">
+        <header class="export-card-h">
+          <span class="export-ico tone-ico-blue" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>
+          <div><h2>Cả năm</h2><p>Xếp hạng năm theo mô hình tính điểm</p></div>
+        </header>
+        <form class="form-grid" method="get" action="/xuat/bao-cao">
+          <input type="hidden" name="scope" value="nam"><input type="hidden" name="key" value="all">
+          <div class="field"><label>Mô hình</label><select name="model">{% for value, label in models %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div>
+          <div class="field"><label>Lấy số liệu</label><select name="view"><option value="official">Chỉ tuần đã công bố</option><option value="preview">Kể cả tuần chưa công bố</option></select></div>
+          <div class="toolbar"><button class="btn" type="submit" name="format" value="print">Tải / In</button></div>
+        </form>
+      </article>
+    </div>
+  </section>
+
+  <section class="export-import">
+    <header class="export-card-h">
+      <span class="export-ico tone-ico-orange" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg></span>
+      <div><h2>Nhập file phản ánh</h2><p>Đưa danh sách vi phạm từ file Excel của Đoàn trường vào tuần</p></div>
+    </header>
+    <form class="form-grid export-import-form" method="post" action="/nhap-tuan/phan-anh">
       <input type="hidden" name="nam_id" value="{{ nam.id }}">
       <div class="field full"><label>Đường dẫn file Excel</label><input name="path" placeholder="THEO DOI PHAN ANH_T9 (1).xlsx"></div>
-      <div class="toolbar">
-        <button class="btn" type="submit">Nhập lỗi tuần</button>
-      </div>
+      <div class="toolbar"><button class="btn" type="submit">Nhập lỗi tuần</button></div>
     </form>
-  </div>
-  <div class="card">
-    <h2>Cả năm</h2>
-    <form class="form-grid" method="get" action="/xuat/bao-cao">
-      <input type="hidden" name="scope" value="nam"><input type="hidden" name="key" value="all">
-      <div class="field"><label>Mô hình</label><select name="model">{% for value, label in models %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div>
-      <div class="field"><label>Lấy số liệu</label><select name="view"><option value="official">Chỉ tuần đã công bố</option><option value="preview">Kể cả tuần chưa công bố</option></select></div>
-      <div class="toolbar">
-        <button class="btn" type="submit" name="format" value="print">Tải / In</button>
-      </div>
-    </form>
-  </div>
+  </section>
 </div>
 {% endblock %}
 {% block extra %}

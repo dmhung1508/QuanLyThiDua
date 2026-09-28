@@ -1,166 +1,832 @@
 {% extends "base.html" %}
+{% block body_class %}home-skin{% endblock %}
 {% block title %}Nhập tuần{% endblock %}
+{% block chrome_sub %}Ghi nhận nề nếp, giờ học, kiểm tra miệng và xử lý vi phạm thi đua chi đoàn theo lớp{% endblock %}
 {% block body %}
-<div class="page-head"><h1 class="page-title">Nhập tuần</h1>{% include "week_filter.html" %}</div>
-{% include "week_flow.html" %}
-{% if week_flow and week_flow.chua_bao==0 and week_flow.so_lop>0 and tuan and tuan.trang_thai=='nhap' %}
-<div class="next-box">
-  <h2>Đã nhập đủ lớp</h2>
-  <a class="btn" href="{{ url_for('xep') }}{% if week_flow.q %}?{{ week_flow.q }}{% endif %}">Xếp hạng</a>
+
+<!-- 1. Unified Week & Workflow Command Bar (Single Compact Bar) -->
+<!-- 1. Unified Week & Workflow Ribbon (Ultra Compact) -->
+<div class="unified-week-bar">
+  <!-- Left: Week Navigation -->
+  <div class="week-nav-group">
+    <div class="week-stepper">
+      {% if week_flow and week_flow.prev_q %}
+      <a class="btn-week-step" href="{{ filter_action }}?{{ week_flow.prev_q }}{% for item in extra_q or [] %}&amp;{{ item[0] | urlencode }}={{ item[1] | urlencode }}{% endfor %}" title="Tuần trước">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg>
+      </a>
+      {% else %}
+      <span class="btn-week-step disabled">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg>
+      </span>
+      {% endif %}
+
+      <div class="week-title-wrap">
+        <strong class="w-name">Tuần {{ week_flow.week_no or tuan.calendar_no or tuan.so_tuan }}</strong>
+        <span class="w-dates">{{ week_flow.week_range or (tuan.ngay_bd ~ ' → ' ~ tuan.ngay_kt) }}</span>
+      </div>
+
+      {% if week_flow and week_flow.next_q %}
+      <a class="btn-week-step" href="{{ filter_action }}?{{ week_flow.next_q }}{% for item in extra_q or [] %}&amp;{{ item[0] | urlencode }}={{ item[1] | urlencode }}{% endfor %}" title="Tuần sau">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m9 18 6-6-6-6"/></svg>
+      </a>
+      {% else %}
+      <span class="btn-week-step disabled">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m9 18 6-6-6-6"/></svg>
+      </span>
+      {% endif %}
+    </div>
+
+    <span class="w-status-pill status-{{ tuan.trang_thai or 'nhap' }}">
+      {% if tuan.trang_thai == 'cong_bo' %}Đã công bố{% elif tuan.trang_thai == 'chot' %}Đã chốt{% else %}Đang nhập{% endif %}
+    </span>
+
+    <a class="btn-ghost-sm" href="{{ filter_action }}?nam_id={{ nam.id }}{% for item in extra_q or [] %}{% if item[0] != 'nam_id' and item[0] != 'nam' and item[0] != 'thang' and item[0] != 'week_start' and item[0] != 'tuan_id' %}&amp;{{ item[0] | urlencode }}={{ item[1] | urlencode }}{% endif %}{% endfor %}">Tuần này</a>
+
+    <!-- Week dropdown popover -->
+    <details class="week-popover">
+      <summary class="btn-ghost-sm">Chọn tuần ▾</summary>
+      <div class="week-popover-content">
+        <form method="get" action="{{ filter_action }}">
+          <input type="hidden" name="nam_id" value="{{ nam.id }}">
+          {% for item in extra_q or [] %}{% if item[0] != 'nam_id' and item[0] != 'nam' and item[0] != 'thang' and item[0] != 'week_start' and item[0] != 'tuan_id' %}<input type="hidden" name="{{ item[0] }}" value="{{ item[1] }}">{% endif %}{% endfor %}
+          <div class="popover-row">
+            <label>Tháng:
+              <select name="month_key" onchange="const p=this.value.split('-'); this.form.nam.value=p[0]; this.form.thang.value=Number(p[1]); this.form.submit()">
+                <input type="hidden" name="nam" value="{{ year }}">
+                <input type="hidden" name="thang" value="{{ month }}">
+                {% for y in years %}{% for m in months %}
+                <option value="{{ y }}-{{ m }}" {% if y==year and m==month %}selected{% endif %}>{{ m }}/{{ y }}</option>
+                {% endfor %}{% endfor %}
+              </select>
+            </label>
+          </div>
+          <div class="popover-row">
+            <label>Tuần:
+              <select name="week_start" onchange="this.form.submit()">
+                {% for t in weeks %}{% if not t.legacy %}
+                <option value="{{ t.ngay_bd }}" {% if tuan and ((t.id and t.id==selection.tuan_id) or (not selection.tuan_id and t.ngay_bd==selection.week_start)) %}selected{% endif %}>
+                  Tuần {{ t.calendar_no or t.so_tuan }} · {{ t.ngay_bd.slice(8, 10) }}/{{ t.ngay_bd.slice(5, 7) }}–{{ t.ngay_kt.slice(8, 10) }}/{{ t.ngay_kt.slice(5, 7) }}
+                </option>
+                {% endif %}{% endfor %}
+              </select>
+            </label>
+          </div>
+        </form>
+      </div>
+    </details>
+  </div>
+
+  <!-- Right: Workflow steps + Quick violation trigger -->
+  <div class="week-actions-group">
+    <div class="workflow-steps-compact">
+      <a class="wf-step-mini current" href="{{ url_for('bao_cao_tuan') }}">
+        <span class="wf-num">1</span>
+        <span>Nhập tuần</span>
+      </a>
+      <span class="wf-sep">›</span>
+      <a class="wf-step-mini {% if tuan.trang_thai in ['chot', 'cong_bo'] %}done{% endif %}" href="{{ url_for('xep') }}">
+        <span class="wf-num">2</span>
+        <span>Chốt tuần</span>
+      </a>
+      <span class="wf-sep">›</span>
+      <a class="wf-step-mini {% if tuan.trang_thai == 'cong_bo' %}done{% endif %}" href="{{ url_for('xep') }}">
+        <span class="wf-num">3</span>
+        <span>Công bố</span>
+      </a>
+      <span class="wf-sep">›</span>
+      <a class="wf-step-mini" href="{{ url_for('baocao') }}">
+        <span class="wf-num">4</span>
+        <span>In bảng</span>
+      </a>
+    </div>
+
+    <span class="bar-v-divider"></span>
+
+    <!-- Clean Quick-Log Action Button -->
+    <button type="button" class="btn-quick-violation" id="btnToggleQuickDrawer" onclick="var d=document.getElementById('quickViolationDrawer'); d.open = !d.open; this.classList.toggle('active', d.open);">
+      <span class="bolt-icon" aria-hidden="true">⚡</span>
+      <span>Ghi nhanh vi phạm</span>
+    </button>
+  </div>
+</div>
+
+{% if error_summary %}
+<div class="alert error" role="alert" data-error-alert="{{ error_summary | e }}">
+  <div class="alert-icon" aria-hidden="true">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+  </div>
+  <div>
+    <b>{{ error_summary }}</b>
+    <ul>{% for field,message in errors %}<li><a href="#{{ field }}">{{ message }}</a></li>{% endfor %}</ul>
+  </div>
 </div>
 {% endif %}
-{% if error_summary %}<div class="alert error" role="alert" data-error-alert="{{ error_summary | e }}"><b>{{ error_summary }}</b><ul>{% for field,message in errors %}<li><a href="#{{ field }}">{{ message }}</a></li>{% endfor %}</ul></div>{% endif %}
+
 {% if tuan %}
-<div class="card">
-  <h2>Lỗi học sinh — cả trường</h2>
-  <form class="toolbar" method="post" action="/bao-cao-tuan/loi">
-    <input type="hidden" name="nam_id" value="{{ nam.id }}">
-    {% if selection.tuan_id %}<input type="hidden" name="tuan_id" value="{{ selection.tuan_id }}">{% endif %}
-    <input type="hidden" name="week_start" value="{{ selection.week_start }}">
-    <input type="hidden" name="nam" value="{{ year }}"><input type="hidden" name="thang" value="{{ month }}">
-    <div class="field"><label>Lớp</label>
-      <select name="lop_id" required>{% for lop in lops %}<option value="{{ lop.id }}" {% if current and lop.id==current.id %}selected{% endif %}>{{ lop.ten }}</option>{% endfor %}</select>
+<!-- 2. Collapsible Quick Violation Entry (Doesn't push the screen down) -->
+<details class="quick-log-drawer-slide" id="quickViolationDrawer">
+  <summary style="display:none"></summary>
+  <div class="quick-log-body">
+    <div class="drawer-mode-tabs">
+      <button type="button" class="drawer-tab-btn active" id="btnModeManual" onclick="toggleDrawerMode('manual')">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+        <span>Ghi từng em</span>
+      </button>
+      <button type="button" class="drawer-tab-btn" id="btnModeExcel" onclick="toggleDrawerMode('excel')">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+        <span>📂 Nạp từ file Excel phản ánh (THEO DOI PHAN ANH_T9.xlsx)</span>
+      </button>
     </div>
-    <div class="field"><label>Ngày</label>
-      <select name="ngay" required>
-        {% for d in week_days %}<option value="{{ d.value }}">{{ d.label }}</option>{% endfor %}
-      </select>
+
+    <!-- Mode 1: Manual Form -->
+    <form class="quick-log-form" id="manualLogForm" method="post" action="/bao-cao-tuan/loi">
+      <input type="hidden" name="nam_id" value="{{ nam.id }}">
+      <input type="hidden" name="week_start" value="{{ selection.week_start }}">
+      <input type="hidden" name="nam" value="{{ year }}"><input type="hidden" name="thang" value="{{ month }}">
+
+      <div class="field q-f-lop">
+        <label for="qLop">Lớp</label>
+        <select id="qLop" name="lop_id" required>
+          {% for lop in lops %}
+          <option value="{{ lop.id }}" {% if current and lop.id==current.id %}selected{% endif %}>{{ lop.ten }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="field q-f-ngay">
+        <label for="qNgay">Ngày</label>
+        <select id="qNgay" name="ngay" required>
+          {% for d in week_days %}<option value="{{ d.value }}">{{ d.label }}</option>{% endfor %}
+        </select>
+      </div>
+
+      <div class="field q-f-buoi">
+        <label for="qBuoi">Buổi</label>
+        <select id="qBuoi" name="buoi" required>
+          <option value="sang">Sáng</option>
+          <option value="chieu">Chiều</option>
+        </select>
+      </div>
+
+      <div class="field q-f-name">
+        <label for="qHoTen">Học sinh vi phạm</label>
+        <input id="qHoTen" name="ho_ten" list="ten-lop" autocomplete="off" placeholder="Họ tên (để trống = tập thể)">
+      </div>
+
+      <div class="field q-f-criterion">
+        <label for="qLoi">Tiêu chí vi phạm</label>
+        <select id="qLoi" name="tieu_chi_id" required>
+          <option value="">— Chọn tiêu chí lỗi —</option>
+          {% for tc in tieu_chi_loi %}
+          <option value="{{ tc.id }}">{{ tc.ma }} · {{ tc.ten }} ({{ tc.diem }}/{{ tc.don_vi }})</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="field q-f-qty">
+        <label for="qSl">Số lượng</label>
+        <input id="qSl" name="so_luong" type="number" min="1" value="1">
+      </div>
+
+      <div class="q-f-check">
+        <label class="checkbox-chip">
+          <input type="checkbox" name="tap_the" value="1">
+          <span>Tập thể</span>
+        </label>
+      </div>
+
+      <div class="q-f-btn">
+        <button class="btn btn-primary" type="submit">
+          <span>+ Ghi nhận vi phạm</span>
+        </button>
+      </div>
+    </form>
+
+    <!-- Mode 2: Excel File Import -->
+    <div class="excel-import-box" id="excelImportBox" style="display:none">
+      <div class="import-desc-row">
+        <div class="import-desc-text">
+          <b>Nạp tự động danh sách vi phạm từ file Excel của Đoàn trường</b>
+          <p>Hệ thống tự động đọc từng dòng, nhận diện hơn 25 mẫu lỗi thực tế (sơ vin, dép, phù hiệu, rác, xi nhan, trực nhật...), tự động gán về đúng từng lớp và trừ điểm thi đua tuần theo quy chế.</p>
+        </div>
+        <div class="import-controls-row">
+          <input type="file" id="excelPhanAnhInput" accept=".xlsx,.xls" style="display:none">
+          <button type="button" class="btn btn-primary btn-choose-excel" onclick="document.getElementById('excelPhanAnhInput').click()">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+            <span>Chọn file Excel phản ánh (.xlsx)</span>
+          </button>
+          <label class="checkbox-chip">
+            <input type="checkbox" id="unlockForUploadCheck" checked>
+            <span>Mở khóa tuần để nạp nếu tuần đã chốt/công bố</span>
+          </label>
+        </div>
+      </div>
+      <div id="uploadFeedbackBanner" class="upload-feedback-banner" style="display:none"></div>
     </div>
-    <div class="field"><label>Buổi</label>
-      <select name="buoi" required>
-        <option value="sang">Sáng</option>
-        <option value="chieu">Chiều</option>
-      </select>
-    </div>
-    <div class="field"><label>Họ tên</label><input name="ho_ten" list="ten-lop" autocomplete="off" placeholder="Trống = tập thể"></div>
-    <div class="field"><label>Lỗi (mã / tên)</label>
-      <select name="tieu_chi_id" required>
-        <option value="">— Chọn lỗi —</option>
-        {% for tc in tieu_chi_loi %}<option value="{{ tc.id }}">{{ tc.ma }} · {{ tc.ten }} ({{ tc.diem }}/{{ tc.don_vi }})</option>{% endfor %}
-      </select>
-    </div>
-    <div class="field"><label>SL</label><input name="so_luong" type="number" min="1" value="1" style="width:4.5rem"></div>
-    <label class="chip-check"><input type="checkbox" name="tap_the" value="1"> Tập thể</label>
-    <button class="btn" type="submit">Thêm vào lớp</button>
-  </form>
-</div>
-<div class="split">
-  <div class="list-lops">
-    <div class="list-lops-h">Lớp tuần này <span>{{ da_bao or 0 }}/{{ so_lop or lops|length }} xong</span></div>
-    {% for lop in lops %}<a class="{% if current and lop.id==current.id %}on{% endif %}" href="{{ url_for('bao_cao_tuan',nam_id=nam.id,nam=year,thang=month,week_start=selection.week_start,tuan_id=selection.tuan_id,lop_id=lop.id) }}"><span>{{ lop.ten }}</span><span class="lop-st {% if reported[lop.id]=='da_gui' %}done{% elif reported[lop.id] %}draft{% endif %}">{% if reported[lop.id]=='da_gui' %}Xong{% elif reported[lop.id] %}Nháp{% else %}Chưa{% endif %}</span></a>{% endfor %}
   </div>
-  <div>{% if current %}<form method="post" class="card report-form" data-dirty-guard data-click-entry style="padding:18px">
-    <script type="application/json" id="click-entry-data">{{ click_entry_json | safe }}</script>
-    <datalist id="ten-lop">{% for ten in name_hints %}<option value="{{ ten }}"></option>{% endfor %}</datalist>
-    <input type="hidden" name="nam_id" value="{{ nam.id }}">{% if selection.tuan_id %}<input type="hidden" name="tuan_id" value="{{ selection.tuan_id }}">{% endif %}
-    <input type="hidden" name="week_start" value="{{ selection.week_start }}"><input type="hidden" name="lop_id" value="{{ current.id }}"><input type="hidden" name="nam" value="{{ year }}"><input type="hidden" name="thang" value="{{ month }}"><input type="hidden" name="revision" value="{{ bc.revision or 0 }}"><input type="hidden" name="report_status" value="{{ bc.trang_thai or 'nhap' }}">
-    <h2>{{ current.ten }}</h2>
-    <p class="muted">{{ status }} · {{ 'Lớp chọn' if current.loai_hinh=='chon' or current.nhom==1 else 'Lớp thường' }}</p>
-    {% macro class_actions() %}
-    <div class="form-actions"><span data-save-state>{{ 'Tuần đã khóa' if locked else 'Đã lưu' }}</span>{% if not locked %}<button class="btn ghost" name="action" value="save">Lưu nháp</button><button class="btn" name="action" value="submit">Hoàn tất lớp</button>{% endif %}<a class="btn ghost" href="{{ url_for('cham_tuan',nam_id=nam.id,nam=year,thang=month,week_start=selection.week_start,tuan_id=selection.tuan_id,lop_id=current.id) }}">Điểm lớp</a>{% if tuan.id %}<a class="btn" href="{{ url_for('class_report_print', nam_id=nam.id, tuan_id=tuan.id, lop_id=current.id) }}">Tải / In giấy</a>{% else %}<a class="btn ghost" href="{{ url_for('class_report_print', nam_id=nam.id, week_start=selection.week_start, lop_id=current.id, blank=1) }}">Mẫu trắng</a>{% endif %}</div>
-    {% endmacro %}
-    {{ class_actions() }}
-    <fieldset {% if locked %}disabled{% endif %}>
-    <section><h3>1. Nề nếp</h3>
-      <details class="entry-block" {% if nghi|length or error_summary %}open{% endif %}>
-      <summary>Nghỉ không lý do <span class="entry-n">{{ nghi|length }}</span></summary>
-      <div class="click-add" data-composer="nghi">
-        <div class="day-chips" data-composer-days></div>
-        <input class="name-pick" list="ten-lop" autocomplete="off" placeholder="Họ tên">
-        <button type="button" class="btn sm" data-composer-add>Thêm</button>
+</details>
+
+<!-- 3. Main Split Workspace -->
+<div class="nhap-workspace-split">
+  <!-- Left Column: Modern Grade-filtered Class List -->
+  <aside class="class-selector-card">
+    <div class="class-card-header">
+      <div class="header-row">
+        <h3>Danh sách lớp</h3>
+        <span class="badge-progress-done">{{ da_bao or 0 }}/{{ so_lop or lops|length }} hoàn tất</span>
       </div>
-      <div class="table-wrap"><table class="data" id="tbl-nghi"><thead><tr><th>Học sinh</th><th>Ngày</th><th>Ghi chú</th><th></th></tr></thead><tbody>{% for r in nghi %}<tr><td><input id="nghi_{{ r.index if r.index is defined else loop.index0 }}_ho_ten" name="nghi_{{ r.index if r.index is defined else loop.index0 }}_ho_ten" value="{{ r.ho_ten or '' }}" list="ten-lop" autocomplete="off"></td><td><input id="nghi_{{ r.index if r.index is defined else loop.index0 }}_ngay" name="nghi_{{ r.index if r.index is defined else loop.index0 }}_ngay" type="date" min="{{ tuan.ngay_bd }}" max="{{ tuan.ngay_kt }}" value="{{ r.ngay or '' }}"></td><td><textarea name="nghi_{{ r.index if r.index is defined else loop.index0 }}_ghi_chu">{{ r.ghi_chu or '' }}</textarea></td><td><button type="button" class="btn ghost sm" data-delete-row aria-label="Xóa dòng nghỉ {{ loop.index }}">Xóa dòng</button></td></tr>{% endfor %}</tbody></table></div>
-      </details>
-      {% for loai,lab in loai_nn %}
-      <details class="entry-block" {% if sk[loai]|length or error_summary %}open{% endif %}>
-      <summary>{{ lab }} <span class="entry-n">{{ sk[loai]|length }}</span></summary>
-      <div class="click-add" data-composer="{{ loai }}">
-        <div class="day-chips" data-composer-days></div>
-        <input class="name-pick" list="ten-lop" autocomplete="off" placeholder="Họ tên">
-        <button type="button" class="btn sm" data-composer-add>Thêm</button>
+      <!-- Grade Filter Chips -->
+      <div class="grade-chips-bar" role="tablist">
+        <button type="button" class="grade-filter-btn active" data-grade-filter="all">Tất cả ({{ lops|length }})</button>
+        <button type="button" class="grade-filter-btn" data-grade-filter="10">K10</button>
+        <button type="button" class="grade-filter-btn" data-grade-filter="11">K11</button>
+        <button type="button" class="grade-filter-btn" data-grade-filter="12">K12</button>
       </div>
-      <div class="table-wrap"><table class="data" id="tbl-{{ loai }}"><thead><tr><th>Học sinh</th><th>Ngày</th><th>SL</th><th>Ghi chú</th><th></th></tr></thead><tbody>{% for r in sk[loai] %}{% set ix=r.index if r.index is defined else loop.index0 %}<tr><td><input id="{{ loai }}_{{ ix }}_ho_ten" name="{{ loai }}_{{ ix }}_ho_ten" value="{{ r.ho_ten or '' }}" list="ten-lop" autocomplete="off"></td><td><input id="{{ loai }}_{{ ix }}_ngay" name="{{ loai }}_{{ ix }}_ngay" type="date" min="{{ tuan.ngay_bd }}" max="{{ tuan.ngay_kt }}" value="{{ r.ngay or '' }}"></td><td><input id="{{ loai }}_{{ ix }}_so_luong" name="{{ loai }}_{{ ix }}_so_luong" type="number" min="1" step="1" value="{{ r.so_luong or 1 }}"></td><td><textarea name="{{ loai }}_{{ ix }}_ghi_chu">{{ r.ghi_chu or '' }}</textarea></td><td><button type="button" class="btn ghost sm" data-delete-row aria-label="Xóa dòng {{ lab }} {{ loop.index }}">Xóa dòng</button></td></tr>{% endfor %}</tbody></table></div>
-      </details>
+      <!-- Search Input -->
+      <div class="search-box-wrap">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="search" id="classSearchInput" placeholder="Tìm tên lớp..." aria-label="Tìm lớp">
+      </div>
+    </div>
+
+    <!-- Scrollable Class Cards -->
+    <div class="class-cards-scroll" id="classCardsScroll">
+      {% for lop in lops %}
+      <a class="class-nav-row {% if current and lop.id==current.id %}active{% endif %}"
+         data-grade-tag="{{ lop.ten.slice(0, 2) }}"
+         data-class-name="{{ lop.ten }}"
+         href="{{ url_for('bao_cao_tuan', nam_id=nam.id, nam=year, thang=month, week_start=selection.week_start, tuan_id=selection.tuan_id, lop_id=lop.id) }}">
+        <div class="class-left-meta">
+          <span class="class-tag-pill">{{ lop.ten.slice(0, 2) }}</span>
+          <div class="class-name-info">
+            <strong class="class-title">{{ lop.ten }}</strong>
+            <small class="class-type-sub">{{ 'Lớp chọn' if lop.nhom==1 else 'Lớp thường' }}</small>
+          </div>
+        </div>
+        <div class="class-status-right">
+          {% if reported[lop.id]=='da_gui' %}
+          <span class="status-pill-ok" title="Đã nộp báo cáo">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+            <span>Hoàn tất</span>
+          </span>
+          {% elif reported[lop.id] %}
+          <span class="status-pill-draft" title="Đang nhập nháp">
+            <span class="dot-amber">●</span>
+            <span>Bản nháp</span>
+          </span>
+          {% else %}
+          <span class="status-pill-empty" title="Chưa nhập">Chưa nhập</span>
+          {% endif %}
+        </div>
+      </a>
       {% endfor %}
-      <details class="entry-block" {% if vp|length or error_summary %}open{% endif %}>
-      <summary>Vi phạm khác <span class="entry-n">{{ vp|length }}</span></summary>
-      <select id="vp-tieu-chi-options" hidden aria-hidden="true"><option value="">— Chọn tiêu chí —</option>{% for tc in tieu_chi_nn %}<option value="{{ tc.id }}">{{ tc.ten }} ({{ tc.diem }}/{{ tc.don_vi }})</option>{% endfor %}</select>
-      <div class="click-add click-add-vp" data-composer="vp">
-        <select data-composer-tc aria-label="Tiêu chí"><option value="">— Chọn tiêu chí —</option>{% for tc in tieu_chi_nn %}<option value="{{ tc.id }}">{{ tc.ten }} ({{ tc.diem }}/{{ tc.don_vi }})</option>{% endfor %}</select>
-        <div class="day-chips" data-composer-days></div>
-        <input class="name-pick" list="ten-lop" autocomplete="off" placeholder="Họ tên">
-        <label class="chip-check"><input type="checkbox" data-composer-tap value="1"> Tập thể</label>
-        <label class="chip-check"><input type="checkbox" data-composer-gvcn value="1"> GVCN phát hiện</label>
-        <button type="button" class="btn sm" data-composer-add>Thêm</button>
-      </div>
-      <div class="table-wrap"><table class="data" id="tbl-vp"><thead><tr><th>Tiêu chí</th><th>Học sinh</th><th>Ngày</th><th>SL</th><th>Tập thể</th><th>GVCN phát hiện</th><th>Ghi chú</th><th></th></tr></thead><tbody>{% for r in vp %}{% set ix=r.index if r.index is defined else loop.index0 %}<tr>
-        <td><select id="vp_{{ ix }}_tieu_chi_id" name="vp_{{ ix }}_tieu_chi_id"><option value="">— Chọn tiêu chí —</option>{% for tc in tieu_chi_nn %}<option value="{{ tc.id }}" {% if r.tieu_chi_id|string == tc.id|string %}selected{% endif %}>{{ tc.ten }} ({{ tc.diem }}/{{ tc.don_vi }})</option>{% endfor %}</select></td>
-        <td><input id="vp_{{ ix }}_ho_ten" name="vp_{{ ix }}_ho_ten" value="{{ r.ho_ten or '' }}" list="ten-lop" autocomplete="off"></td>
-        <td><input id="vp_{{ ix }}_ngay" name="vp_{{ ix }}_ngay" type="date" min="{{ tuan.ngay_bd }}" max="{{ tuan.ngay_kt }}" value="{{ r.ngay or '' }}"></td>
-        <td><input id="vp_{{ ix }}_so_luong" name="vp_{{ ix }}_so_luong" type="number" min="1" step="1" value="{{ r.so_luong or 1 }}"></td>
-        <td><input type="checkbox" name="vp_{{ ix }}_tap_the" value="1" {% if r.tap_the and r.tap_the != '0' %}checked{% endif %} aria-label="Tập thể"></td>
-        <td><input type="checkbox" name="vp_{{ ix }}_gvcn_phat_hien" value="1" {% if r.gvcn_phat_hien and r.gvcn_phat_hien != '0' %}checked{% endif %} aria-label="GVCN phát hiện"></td>
-        <td><textarea name="vp_{{ ix }}_ghi_chu">{{ r.ghi_chu or '' }}</textarea></td>
-        <td><button type="button" class="btn ghost sm" data-delete-row aria-label="Xóa dòng vi phạm {{ loop.index }}">Xóa dòng</button></td>
-      </tr>{% endfor %}</tbody></table></div>
-      </details>
-    </section>
-    <section><h3>2. Học tập</h3>
-      <details class="entry-block" {% if thai_do|length or error_summary %}open{% endif %}>
-      <summary>Thái độ / ý thức <span class="entry-n">{{ thai_do|length }}</span></summary>
-      <div class="click-add" data-composer="thai_do">
-        <div class="day-chips" data-composer-days></div>
-        <input class="name-pick" list="ten-lop" autocomplete="off" placeholder="Họ tên">
-        <input data-composer-tiet placeholder="Tiết / môn">
-        <input data-composer-nd placeholder="Nội dung lỗi">
-        <button type="button" class="btn sm" data-composer-add>Thêm</button>
-      </div>
-      <div class="table-wrap"><table class="data" id="tbl-thai_do"><thead><tr><th>Học sinh</th><th>Tiết / môn</th><th>Nội dung</th><th>Ngày</th><th>Ghi chú</th><th></th></tr></thead><tbody>{% for r in thai_do %}{% set ix=r.index if r.index is defined else loop.index0 %}<tr><td><input id="thai_do_{{ ix }}_ho_ten" name="thai_do_{{ ix }}_ho_ten" value="{{ r.ho_ten or '' }}" list="ten-lop" autocomplete="off"></td><td><input name="thai_do_{{ ix }}_tiet_mon" value="{{ r.tiet_mon or '' }}"></td><td><textarea id="thai_do_{{ ix }}_noi_dung" name="thai_do_{{ ix }}_noi_dung">{{ r.noi_dung or '' }}</textarea></td><td><input name="thai_do_{{ ix }}_ngay" type="date" min="{{ tuan.ngay_bd }}" max="{{ tuan.ngay_kt }}" value="{{ r.ngay or '' }}"></td><td><textarea name="thai_do_{{ ix }}_ghi_chu">{{ r.ghi_chu or '' }}</textarea></td><td><button type="button" class="btn ghost sm" data-delete-row aria-label="Xóa dòng thái độ {{ loop.index }}">Xóa dòng</button></td></tr>{% endfor %}</tbody></table></div>
-      </details>
-      <h4>Giờ học</h4>
-      <div class="count-pad" data-count-pad="gio">
-        <div class="form-grid count-grid">
-          {% for key,label in [['gio_tong','Tổng giờ'],['gio_tot','Tốt'],['gio_kha','Khá'],['gio_tb','Trung bình'],['gio_yeu','Yếu'],['gio_kem','Kém']] %}
-          <div class="field"><label for="{{ key }}">{{ label }}</label>
-            <div class="stepper">
-              <button type="button" class="step-btn" data-step="-1" data-for="{{ key }}" aria-label="Giảm {{ label }}">−</button>
-              <input id="{{ key }}" name="{{ key }}" type="number" min="0" step="1" inputmode="numeric" value="{{ bc[key] if bc[key] is defined else 0 }}">
-              <button type="button" class="step-btn" data-step="1" data-for="{{ key }}" aria-label="Tăng {{ label }}">+</button>
-            </div>
-            {% if errors[key] %}<small class="field-error">{{ errors[key] }}</small>{% endif %}
-            {% if key != 'gio_tong' %}<button type="button" class="btn ghost sm fill-rest" data-fill-rest="{{ key }}" hidden>+ phần còn</button>{% endif %}
+    </div>
+  </aside>
+
+  <!-- Right Column: Dedicated Class Report Workspace -->
+  <div class="class-report-workspace">
+    {% if current %}
+    <!-- Class Hero Card Banner - COMPACT -->
+    <div class="class-hero-banner compact">
+      <div class="hero-class-info compact">
+        <div class="hero-avatar-circle compact">{{ current.ten }}</div>
+        <div class="hero-info">
+          <div class="hero-title-line compact">
+            <p class="hero-kicker">Nhập báo cáo tuần</p>
+            <h2>Chi đoàn {{ current.ten }}</h2>
+            <span class="pill-cohort {{ 'cohort-chon' if current.nhom==1 else 'cohort-thuong' }}">
+              {{ 'Lớp chọn' if current.nhom==1 else 'Lớp thường' }}
+            </span>
+            <span class="pill-report-status {{ 'st-done' if bc.trang_thai=='da_gui' else 'st-draft' }}">
+              {{ 'Đã nộp' if bc.trang_thai=='da_gui' else 'Nháp' }}
+            </span>
           </div>
-          {% endfor %}
-        </div>
-        <p class="count-meter" data-gio-meter></p>
-        <div class="field full"><label for="ghi_chu_gio">Lý do giờ chưa xếp loại</label><textarea id="ghi_chu_gio" name="ghi_chu_gio" rows="3">{{ bc.ghi_chu_gio or '' }}</textarea></div>
-      </div>
-      <h4>Điểm kiểm tra miệng</h4>
-      <div class="count-pad" data-count-pad="ktm">
-        <p class="toolbar" style="margin:0 0 10px"><button type="button" class="btn ghost sm" data-ktm-none>Không phát sinh điểm miệng</button></p>
-        <div class="form-grid count-grid">
-          {% for key,label in [['ktm_9_10','9–10'],['ktm_7_8','7–8'],['ktm_5_6','5–6'],['ktm_3_4','3–4'],['ktm_0_2','0–2']] %}
-          <div class="field"><label for="{{ key }}">{{ label }}</label>
-            <div class="stepper">
-              <button type="button" class="step-btn" data-step="-1" data-for="{{ key }}" aria-label="Giảm {{ label }}">−</button>
-              <input id="{{ key }}" name="{{ key }}" type="number" min="0" step="1" inputmode="numeric" value="{{ bc[key] if bc[key] is defined else 0 }}">
-              <button type="button" class="step-btn" data-step="1" data-for="{{ key }}" aria-label="Tăng {{ label }}">+</button>
-            </div>
-            {% if errors[key] %}<small class="field-error">{{ errors[key] }}</small>{% endif %}
+          <div class="hero-detail-line compact">
+            <span>Sĩ số: <b>{{ current.si_so or 0 }} học sinh</b></span>
+            <span class="divider-dot">·</span>
+            <span>GV: <b>{{ current.gvcn or 'Chưa phân công' }}</b></span>
+            <span class="divider-dot">·</span>
+            <span>Tuần {{ tuan.calendar_no or tuan.so_tuan }} ({{ tuan.ngay_bd }} → {{ tuan.ngay_kt }})</span>
           </div>
-          {% endfor %}
         </div>
-        <p class="count-meter" data-ktm-meter></p>
-        <div class="field full"><label for="ghi_chu_ktm">Ghi chú</label><textarea id="ghi_chu_ktm" name="ghi_chu_ktm" rows="3">{{ bc.ghi_chu_ktm or '' }}</textarea></div>
       </div>
-    </section>
-    <details class="entry-block" {% if bc.bi_thu or bc.ngay_lap %}open{% endif %}>
-      <summary>Bí thư / ngày lập giấy</summary>
-      <div class="form-grid"><div class="field"><label for="bi_thu">Bí thư</label><input id="bi_thu" name="bi_thu" value="{{ bc.bi_thu or '' }}"></div><div class="field"><label for="ngay_lap">Ngày lập</label><input id="ngay_lap" name="ngay_lap" type="date" min="{{ tuan.ngay_bd }}" max="{{ tuan.ngay_kt }}" value="{{ bc.ngay_lap or '' }}"></div></div>
-    </details>
-    </fieldset>
-    {{ class_actions() }}
-  </form>{% endif %}</div>
-</div>{% else %}<p class="page-sub">Chưa có lịch năm học.</p><p><a class="btn" href="/nam-hoc">Năm học và lịch</a></p>{% endif %}
+
+      <!-- Action Buttons Row - COMPACT -->
+      <div class="hero-actions-row compact">
+        {% if not locked %}
+        <button class="btn ghost btn-action-draft" type="submit" form="classReportForm" name="action" value="save">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+          <span>Lưu nháp</span>
+        </button>
+        <button class="btn btn-primary btn-action-submit" type="submit" form="classReportForm" name="action" value="submit">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Hoàn tất</span>
+        </button>
+        {% endif %}
+        <a class="btn ghost" href="{{ url_for('cham_tuan', nam_id=nam.id, nam=year, thang=month, week_start=selection.week_start, tuan_id=selection.tuan_id, lop_id=current.id) }}" title="Xem bảng điểm chi tiết">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          <span>Điểm lớp</span>
+        </a>
+        {% if tuan.id %}
+        <a class="btn ghost" href="{{ url_for('class_report_print', nam_id=nam.id, tuan_id=tuan.id, lop_id=current.id) }}" target="_blank" title="Tải phiếu in báo cáo tuần">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2H18a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><path d="M12 8v8"/></svg>
+          <span>In phiếu</span>
+        </a>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- The Real Class Report Form -->
+    <form method="post" id="classReportForm" class="report-form-workspace" data-dirty-guard data-click-entry>
+      <script type="application/json" id="click-entry-data">{{ click_entry_json | safe }}</script>
+      <datalist id="ten-lop">{% for ten in name_hints %}<option value="{{ ten }}"></option>{% endfor %}</datalist>
+      <input type="hidden" name="nam_id" value="{{ nam.id }}">
+      {% if selection.tuan_id %}<input type="hidden" name="tuan_id" value="{{ selection.tuan_id }}">{% endif %}
+      <input type="hidden" name="week_start" value="{{ selection.week_start }}">
+      <input type="hidden" name="lop_id" value="{{ current.id }}">
+      <input type="hidden" name="nam" value="{{ year }}">
+      <input type="hidden" name="thang" value="{{ month }}">
+      <input type="hidden" name="revision" value="{{ bc.revision or 0 }}">
+      <input type="hidden" name="report_status" value="{{ bc.trang_thai or 'nhap' }}">
+
+      <fieldset {% if locked %}disabled{% endif %} class="workspace-fieldset">
+        <div class="report-sections-grid">
+          <!-- CỘT TRÁI: NỀ NẾP & NGƯỜI LẬP -->
+          <div class="report-col">
+            <!-- SECTION 1: NỀ NẾP -->
+            <section class="form-section-card">
+              <div class="sec-header-row">
+                <span class="sec-badge-num">1</span>
+                <h3>Nề nếp &amp; Vi phạm kỷ luật</h3>
+              </div>
+          <div class="violation-compact-table">
+            <!-- 1.1 Nghỉ học không lý do -->
+            <details class="v-row" {% if nghi|length %}open{% endif %}>
+              <summary class="v-row-head">
+                <div class="v-cell-name">
+                  <span class="v-mini-ico cat-red">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><line x1="10" x2="14" y1="14" y2="18"/><line x1="14" x2="10" y1="14" y2="18"/></svg>
+                  </span>
+                  <span class="v-title">Nghỉ học không lý do / Bỏ giờ</span>
+                  <span class="v-rule-tag tag-red">-10đ/HS</span>
+                </div>
+                <div class="v-cell-action">
+                  <span class="v-count-pill {% if nghi|length %}has-count{% endif %}">{{ nghi|length }} lỗi</span>
+                  <span class="v-btn-toggle">+ Thêm</span>
+                </div>
+              </summary>
+              <div class="v-row-content">
+                <div class="quick-add-row" data-composer="nghi">
+                  <select class="composer-day-select" data-composer-day aria-label="Ngày vi phạm">
+                    {% for d in week_days %}<option value="{{ d.value }}">{{ d.label }}</option>{% endfor %}
+                  </select>
+                  <input class="name-pick" list="ten-lop" autocomplete="off" placeholder="Họ và tên học sinh">
+                  <button type="button" class="btn btn-add-row" data-composer-add>+ Thêm dòng</button>
+                </div>
+                {% if nghi|length %}
+                <div class="table-wrap">
+                  <table class="data-table-clean" id="tbl-nghi">
+                    <thead><tr><th>Học sinh</th><th>Ngày</th><th>Ghi chú</th><th width="48"></th></tr></thead>
+                    <tbody>
+                    {% for r in nghi %}
+                    <tr>
+                      <td><input id="nghi_{{ r.index if r.index is defined else loop.index0 }}_ho_ten" name="nghi_{{ r.index if r.index is defined else loop.index0 }}_ho_ten" value="{{ r.ho_ten or '' }}" list="ten-lop" autocomplete="off" placeholder="Họ tên học sinh"></td>
+                      <td><input id="nghi_{{ r.index if r.index is defined else loop.index0 }}_ngay" name="nghi_{{ r.index if r.index is defined else loop.index0 }}_ngay" type="date" min="{{ tuan.ngay_bd }}" max="{{ tuan.ngay_kt }}" value="{{ r.ngay or '' }}"></td>
+                      <td><textarea name="nghi_{{ r.index if r.index is defined else loop.index0 }}_ghi_chu" placeholder="Lý do / tiết bỏ">{{ r.ghi_chu or '' }}</textarea></td>
+                      <td><button type="button" class="btn-del-trash" data-delete-row title="Xóa dòng" aria-label="Xóa">✕</button></td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+                {% endif %}
+              </div>
+            </details>
+
+            <!-- 1.2 Các lỗi chuẩn: Đi muộn, Trang phục, Phù hiệu (bỏ vp_khac để không lặp) -->
+            {% for loai,lab in loai_nn %}{% if loai != 'vp_khac' %}
+            <details class="v-row" {% if sk[loai]|length %}open{% endif %}>
+              <summary class="v-row-head">
+                <div class="v-cell-name">
+                  <span class="v-mini-ico {% if loai=='di_muon' %}cat-amber{% elif loai=='trang_phuc' %}cat-blue{% else %}cat-purple{% endif %}">
+                    {% if loai == 'di_muon' %}
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    {% elif loai == 'trang_phuc' %}
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg>
+                    {% else %}
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+                    {% endif %}
+                  </span>
+                  <span class="v-title">{{ lab }}</span>
+                  <span class="v-rule-tag">{% if loai=='di_muon' %}-5đ/HS{% elif loai=='trang_phuc' %}-1đ/HS{% else %}-1đ đến -2đ/HS{% endif %}</span>
+                </div>
+                <div class="v-cell-action">
+                  <span class="v-count-pill {% if sk[loai]|length %}has-count{% endif %}">{{ sk[loai]|length }} lỗi</span>
+                  <span class="v-btn-toggle">+ Thêm</span>
+                </div>
+              </summary>
+              <div class="v-row-content">
+                <div class="quick-add-row" data-composer="{{ loai }}">
+                  <select class="composer-day-select" data-composer-day aria-label="Ngày vi phạm">
+                    {% for d in week_days %}<option value="{{ d.value }}">{{ d.label }}</option>{% endfor %}
+                  </select>
+                  <input class="name-pick" list="ten-lop" autocomplete="off" placeholder="Họ và tên học sinh">
+                  <button type="button" class="btn btn-add-row" data-composer-add>+ Thêm dòng</button>
+                </div>
+                {% if sk[loai]|length %}
+                <div class="table-wrap">
+                  <table class="data-table-clean" id="tbl-{{ loai }}">
+                    <thead><tr><th>Học sinh</th><th>Ngày</th><th>SL</th><th>Ghi chú</th><th width="48"></th></tr></thead>
+                    <tbody>
+                    {% for r in sk[loai] %}
+                    {% set ix=r.index if r.index is defined else loop.index0 %}
+                    <tr>
+                      <td><input id="{{ loai }}_{{ ix }}_ho_ten" name="{{ loai }}_{{ ix }}_ho_ten" value="{{ r.ho_ten or '' }}" list="ten-lop" autocomplete="off" placeholder="Họ tên học sinh"></td>
+                      <td><input id="{{ loai }}_{{ ix }}_ngay" name="{{ loai }}_{{ ix }}_ngay" type="date" min="{{ tuan.ngay_bd }}" max="{{ tuan.ngay_kt }}" value="{{ r.ngay or '' }}"></td>
+                      <td><input id="{{ loai }}_{{ ix }}_so_luong" name="{{ loai }}_{{ ix }}_so_luong" type="number" min="1" step="1" value="{{ r.so_luong or 1 }}" style="width:4.5rem"></td>
+                      <td><textarea name="{{ loai }}_{{ ix }}_ghi_chu" placeholder="Ghi chú">{{ r.ghi_chu or '' }}</textarea></td>
+                      <td><button type="button" class="btn-del-trash" data-delete-row title="Xóa dòng" aria-label="Xóa">✕</button></td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+                {% endif %}
+              </div>
+            </details>
+            {% endif %}{% endfor %}
+
+            <!-- 1.3 Vi phạm khác theo tiêu chí chi tiết -->
+            <details class="v-row" {% if vp|length %}open{% endif %}>
+              <summary class="v-row-head">
+                <div class="v-cell-name">
+                  <span class="v-mini-ico cat-red">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+                  </span>
+                  <span class="v-title">Vi phạm khác (Vệ sinh, Mũ BH, Kỷ luật...)</span>
+                  <span class="v-rule-tag">Theo quy chế</span>
+                </div>
+                <div class="v-cell-action">
+                  <span class="v-count-pill {% if vp|length %}has-count{% endif %}">{{ vp|length }} lỗi</span>
+                  <span class="v-btn-toggle">+ Thêm</span>
+                </div>
+              </summary>
+              <div class="v-row-content">
+                <select id="vp-tieu-chi-options" hidden aria-hidden="true">
+                  <option value="">— Chọn tiêu chí —</option>
+                  {% for tc in tieu_chi_nn %}<option value="{{ tc.id }}">{{ tc.ten }} ({{ tc.diem }}/{{ tc.don_vi }})</option>{% endfor %}
+                </select>
+                <div class="quick-add-row click-add-vp" data-composer="vp">
+                  <select data-composer-tc aria-label="Tiêu chí vi phạm" style="min-width:200px">
+                    <option value="">— Chọn tiêu chí vi phạm —</option>
+                    {% for tc in tieu_chi_nn %}<option value="{{ tc.id }}">{{ tc.ten }} ({{ tc.diem }}/{{ tc.don_vi }})</option>{% endfor %}
+                  </select>
+                  <select class="composer-day-select" data-composer-day aria-label="Ngày vi phạm">
+                    {% for d in week_days %}<option value="{{ d.value }}">{{ d.label }}</option>{% endfor %}
+                  </select>
+                  <input class="name-pick" list="ten-lop" autocomplete="off" placeholder="Họ tên học sinh">
+                  <label class="checkbox-chip"><input type="checkbox" data-composer-tap value="1"> <span>Tập thể</span></label>
+                  <label class="checkbox-chip"><input type="checkbox" data-composer-gvcn value="1"> <span>GVCN</span></label>
+                  <button type="button" class="btn btn-add-row" data-composer-add>+ Thêm</button>
+                </div>
+                {% if vp|length %}
+                <div class="table-wrap">
+                  <table class="data-table-clean" id="tbl-vp">
+                    <thead><tr><th>Tiêu chí</th><th>Học sinh</th><th>Ngày</th><th>SL</th><th>Tập thể</th><th>GVCN</th><th>Ghi chú</th><th width="48"></th></tr></thead>
+                    <tbody>
+                    {% for r in vp %}
+                    {% set ix=r.index if r.index is defined else loop.index0 %}
+                    <tr>
+                      <td>
+                        <select id="vp_{{ ix }}_tieu_chi_id" name="vp_{{ ix }}_tieu_chi_id">
+                          <option value="">— Chọn tiêu chí —</option>
+                          {% for tc in tieu_chi_nn %}<option value="{{ tc.id }}" {% if r.tieu_chi_id|string == tc.id|string %}selected{% endif %}>{{ tc.ten }} ({{ tc.diem }}/{{ tc.don_vi }})</option>{% endfor %}
+                        </select>
+                      </td>
+                      <td><input id="vp_{{ ix }}_ho_ten" name="vp_{{ ix }}_ho_ten" value="{{ r.ho_ten or '' }}" list="ten-lop" autocomplete="off" placeholder="Họ tên"></td>
+                      <td><input id="vp_{{ ix }}_ngay" name="vp_{{ ix }}_ngay" type="date" min="{{ tuan.ngay_bd }}" max="{{ tuan.ngay_kt }}" value="{{ r.ngay or '' }}"></td>
+                      <td><input id="vp_{{ ix }}_so_luong" name="vp_{{ ix }}_so_luong" type="number" min="1" step="1" value="{{ r.so_luong or 1 }}" style="width:4.5rem"></td>
+                      <td><input type="checkbox" name="vp_{{ ix }}_tap_the" value="1" {% if r.tap_the and r.tap_the != '0' %}checked{% endif %} aria-label="Tập thể"></td>
+                      <td><input type="checkbox" name="vp_{{ ix }}_gvcn_phat_hien" value="1" {% if r.gvcn_phat_hien and r.gvcn_phat_hien != '0' %}checked{% endif %} aria-label="GVCN phát hiện"></td>
+                      <td><textarea name="vp_{{ ix }}_ghi_chu" placeholder="Chi tiết lỗi">{{ r.ghi_chu or '' }}</textarea></td>
+                      <td><button type="button" class="btn-del-trash" data-delete-row title="Xóa dòng" aria-label="Xóa">✕</button></td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+                {% endif %}
+              </div>
+            </details>
+          </div>
+            </section>
+
+            <!-- SECTION 3: BÍ THƯ & NGÀY LẬP -->
+            <section class="form-section-card signatory-sec">
+              <div class="sec-header-row">
+                <span class="sec-badge-num">3</span>
+                <h3>Người lập báo cáo &amp; Xác nhận</h3>
+              </div>
+              <div class="signatory-inputs-grid">
+                <div class="field">
+                  <label for="bi_thu">Bí thư chi đoàn</label>
+                  <input id="bi_thu" name="bi_thu" value="{{ bc.bi_thu or '' }}" placeholder="Ví dụ: Nguyễn Văn A">
+                </div>
+                <div class="field">
+                  <label for="ngay_lap">Ngày lập báo cáo</label>
+                  <input id="ngay_lap" name="ngay_lap" type="date" min="{{ tuan.ngay_bd }}" max="{{ tuan.ngay_kt }}" value="{{ bc.ngay_lap or '' }}">
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <!-- CỘT PHẢI: HỌC TẬP & SỔ ĐẦU BÀI -->
+          <div class="report-col">
+            <!-- SECTION 2: HỌC TẬP -->
+            <section class="form-section-card">
+              <div class="sec-header-row">
+                <span class="sec-badge-num">2</span>
+                <h3>Học tập &amp; Giờ học Sổ đầu bài</h3>
+              </div>
+          <div class="violation-compact-table">
+            <!-- 2.1 Thái độ ý thức -->
+            <details class="v-row" {% if thai_do|length %}open{% endif %}>
+              <summary class="v-row-head">
+                <div class="v-cell-name">
+                  <span class="v-mini-ico cat-amber">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                  </span>
+                  <span class="v-title">Ghi sổ đầu bài: Thái độ / Ý thức giờ học</span>
+                  <span class="v-rule-tag tag-amber">-1đ / cá nhân, -10đ / tập thể</span>
+                </div>
+                <div class="v-cell-action">
+                  <span class="v-count-pill {% if thai_do|length %}has-count{% endif %}">{{ thai_do|length }} lỗi</span>
+                  <span class="v-btn-toggle">+ Thêm</span>
+                </div>
+              </summary>
+              <div class="v-row-content">
+                <div class="quick-add-row" data-composer="thai_do">
+                  <select class="composer-day-select" data-composer-day aria-label="Ngày vi phạm">
+                    {% for d in week_days %}<option value="{{ d.value }}">{{ d.label }}</option>{% endfor %}
+                  </select>
+                  <input class="name-pick" list="ten-lop" autocomplete="off" placeholder="Họ tên học sinh">
+                  <input data-composer-tiet placeholder="Tiết / môn học" style="width:140px">
+                  <input data-composer-nd placeholder="Nội dung lỗi (ngủ, mất trật tự...)" style="flex:1">
+                  <button type="button" class="btn btn-add-row" data-composer-add>+ Thêm</button>
+                </div>
+                {% if thai_do|length %}
+                <div class="table-wrap">
+                  <table class="data-table-clean" id="tbl-thai_do">
+                    <thead><tr><th>Học sinh</th><th>Tiết / môn</th><th>Nội dung</th><th>Ngày</th><th>Ghi chú</th><th width="48"></th></tr></thead>
+                    <tbody>
+                    {% for r in thai_do %}
+                    {% set ix=r.index if r.index is defined else loop.index0 %}
+                    <tr>
+                      <td><input id="thai_do_{{ ix }}_ho_ten" name="thai_do_{{ ix }}_ho_ten" value="{{ r.ho_ten or '' }}" list="ten-lop" autocomplete="off" placeholder="Họ tên"></td>
+                      <td><input name="thai_do_{{ ix }}_tiet_mon" value="{{ r.tiet_mon or '' }}" placeholder="Tiết / môn"></td>
+                      <td><textarea id="thai_do_{{ ix }}_noi_dung" name="thai_do_{{ ix }}_noi_dung" placeholder="Nội dung lỗi">{{ r.noi_dung or '' }}</textarea></td>
+                      <td><input name="thai_do_{{ ix }}_ngay" type="date" min="{{ tuan.ngay_bd }}" max="{{ tuan.ngay_kt }}" value="{{ r.ngay or '' }}"></td>
+                      <td><textarea name="thai_do_{{ ix }}_ghi_chu" placeholder="Ghi chú thêm">{{ r.ghi_chu or '' }}</textarea></td>
+                      <td><button type="button" class="btn-del-trash" data-delete-row title="Xóa dòng" aria-label="Xóa">✕</button></td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+                {% endif %}
+              </div>
+            </details>
+          </div>
+
+          <!-- 2.2 Phân loại giờ học -->
+          <div class="hours-evaluation-panel count-pad" data-count-pad="gio">
+            <div class="eval-panel-header">
+              <div class="eval-title-wrap">
+                <span class="eval-ico">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </span>
+                <div>
+                  <h4>Phân loại giờ học trong tuần</h4>
+                  <span class="eval-sub">Thống kê xếp loại 25 tiết học chính khóa theo sổ đầu bài</span>
+                </div>
+              </div>
+              <span class="hours-total-badge">25 tiết chính khóa</span>
+            </div>
+
+            <div class="steppers-card-grid count-grid">
+              {% for key,label,pts,accent in [
+                ['gio_tong','Tổng số giờ','Mẫu số','neutral'],
+                ['gio_tot','Giờ Tốt','+2 đ','green'],
+                ['gio_kha','Giờ Khá','+1 đ','blue'],
+                ['gio_tb','Giờ TB','0 đ','slate'],
+                ['gio_yeu','Giờ Yếu','-1 đ','amber'],
+                ['gio_kem','Giờ Kém','-2 đ','red']
+              ] %}
+              <div class="stepper-box step-theme-{{ accent }}">
+                <div class="step-head">
+                  <label for="{{ key }}">{{ label }}</label>
+                  <span class="step-weight">{{ pts }}</span>
+                </div>
+                <div class="stepper">
+                  <button type="button" class="step-btn" data-step="-1" data-for="{{ key }}" aria-label="Giảm {{ label }}">−</button>
+                  <input id="{{ key }}" name="{{ key }}" type="number" min="0" step="1" inputmode="numeric" value="{{ bc[key] if bc[key] is defined else 0 }}">
+                  <button type="button" class="step-btn" data-step="1" data-for="{{ key }}" aria-label="Tăng {{ label }}">+</button>
+                </div>
+                {% if errors[key] %}<small class="field-error">{{ errors[key] }}</small>{% endif %}
+                {% if key != 'gio_tong' %}
+                <button type="button" class="btn-fill-rest fill-rest" data-fill-rest="{{ key }}" hidden>+ Phần còn</button>
+                {% endif %}
+              </div>
+              {% endfor %}
+            </div>
+
+            <p class="count-meter-bar" data-gio-meter></p>
+
+            <div class="field reason-textarea-field">
+              <label for="ghi_chu_gio">Lý do số giờ chưa xếp loại (nếu tổng giờ xếp loại nhỏ hơn tổng giờ)</label>
+              <textarea id="ghi_chu_gio" name="ghi_chu_gio" rows="2" placeholder="Ví dụ: Nghỉ lễ 1 tiết; tiết SHDC chưa cho điểm...">{{ bc.ghi_chu_gio or '' }}</textarea>
+            </div>
+          </div>
+
+          <!-- 2.3 Điểm kiểm tra miệng -->
+          <div class="ktm-evaluation-panel count-pad" data-count-pad="ktm">
+            <div class="eval-panel-header">
+              <div class="eval-title-wrap">
+                <span class="eval-ico">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                </span>
+                <div>
+                  <h4>Điểm kiểm tra miệng trong tuần</h4>
+                  <span class="eval-sub">Phân loại điểm số kiểm tra đầu giờ theo 5 dải điểm chuẩn của quy chế</span>
+                </div>
+              </div>
+              <button type="button" class="btn ghost sm btn-no-ktm" data-ktm-none>Không phát sinh điểm miệng</button>
+            </div>
+
+            <div class="steppers-card-grid count-grid">
+              {% for key,label,pts,accent in [
+                ['ktm_9_10','Điểm 9 – 10','+2 đ','green'],
+                ['ktm_7_8','Điểm 7 – 8','+1 đ','blue'],
+                ['ktm_5_6','Điểm 5 – 6','0 đ','slate'],
+                ['ktm_3_4','Điểm 3 – 4','-1 đ','amber'],
+                ['ktm_0_2','Điểm 0 – 2','-2 đ','red']
+              ] %}
+              <div class="stepper-box step-theme-{{ accent }}">
+                <div class="step-head">
+                  <label for="{{ key }}">{{ label }}</label>
+                  <span class="step-weight">{{ pts }}</span>
+                </div>
+                <div class="stepper">
+                  <button type="button" class="step-btn" data-step="-1" data-for="{{ key }}" aria-label="Giảm {{ label }}">−</button>
+                  <input id="{{ key }}" name="{{ key }}" type="number" min="0" step="1" inputmode="numeric" value="{{ bc[key] if bc[key] is defined else 0 }}">
+                  <button type="button" class="step-btn" data-step="1" data-for="{{ key }}" aria-label="Tăng {{ label }}">+</button>
+                </div>
+                {% if errors[key] %}<small class="field-error">{{ errors[key] }}</small>{% endif %}
+              </div>
+              {% endfor %}
+            </div>
+
+            <p class="count-meter-bar" data-ktm-meter></p>
+
+            <div class="field reason-textarea-field">
+              <label for="ghi_chu_ktm">Ghi chú về kiểm tra miệng</label>
+              <textarea id="ghi_chu_ktm" name="ghi_chu_ktm" rows="2" placeholder="Ghi chú môn học, tình hình kiểm tra...">{{ bc.ghi_chu_ktm or '' }}</textarea>
+            </div>
+          </div>
+            </section>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Bottom Sticky Action Bar -->
+      <div class="bottom-action-dock">
+        <div class="dock-status-info">
+          <span class="save-indicator-badge" data-save-state>{{ 'Tuần đã khóa' if locked else 'Đã lưu' }}</span>
+          <small class="dock-hint">Mọi thay đổi được lưu tạm thời. Bấm Hoàn tất lớp khi nhập xong.</small>
+        </div>
+        <div class="dock-buttons">
+          {% if not locked %}
+          <button class="btn ghost" type="submit" name="action" value="save">Lưu nháp</button>
+          <button class="btn btn-primary" type="submit" name="action" value="submit">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            <span>Hoàn tất lớp</span>
+          </button>
+          {% endif %}
+          <a class="btn ghost" href="{{ url_for('cham_tuan', nam_id=nam.id, nam=year, thang=month, week_start=selection.week_start, tuan_id=selection.tuan_id, lop_id=current.id) }}">Điểm lớp</a>
+          {% if tuan.id %}
+          <a class="btn ghost" href="{{ url_for('class_report_print', nam_id=nam.id, tuan_id=tuan.id, lop_id=current.id) }}" target="_blank">In phiếu</a>
+          {% endif %}
+        </div>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% else %}
+<div class="empty-state-card">
+  <h3>Chưa có lịch năm học</h3>
+  <p>Vui lòng cấu hình năm học và khoảng thời gian hoạt động trước khi nhập tuần.</p>
+  <a class="btn btn-primary" href="/nam-hoc">Đến trang Cài đặt Năm học →</a>
+</div>
+{% endif %}
+
+<script>
+  // Clean client-side grade and name filtering
+  (function () {
+    var searchInput = document.getElementById("classSearchInput");
+    var container = document.getElementById("classCardsScroll");
+    var gradeBtns = document.querySelectorAll("[data-grade-filter]");
+    var currentGrade = "all";
+
+    function filterClasses() {
+      if (!container) return;
+      var q = (searchInput ? searchInput.value : "").trim().toLowerCase();
+      var items = container.querySelectorAll(".class-nav-row");
+      items.forEach(function (el) {
+        var grade = el.getAttribute("data-grade-tag") || "";
+        var name = (el.getAttribute("data-class-name") || "").toLowerCase();
+        var matchGrade = currentGrade === "all" || grade === currentGrade;
+        var matchSearch = !q || name.includes(q);
+        el.style.display = matchGrade && matchSearch ? "" : "none";
+      });
+    }
+
+    if (searchInput) {
+      searchInput.addEventListener("input", filterClasses);
+    }
+    gradeBtns.forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        gradeBtns.forEach(function (b) { b.classList.remove("active"); });
+        this.classList.add("active");
+        currentGrade = this.getAttribute("data-grade-filter") || "all";
+        filterClasses();
+      });
+    });
+
+  // Drawer mode switch (Manual vs Excel Import)
+  window.toggleDrawerMode = function (mode) {
+    var manualForm = document.getElementById("manualLogForm");
+    var excelBox = document.getElementById("excelImportBox");
+    var btnManual = document.getElementById("btnModeManual");
+    var btnExcel = document.getElementById("btnModeExcel");
+    if (mode === "excel") {
+      if (manualForm) manualForm.style.display = "none";
+      if (excelBox) excelBox.style.display = "block";
+      btnManual?.classList.remove("active");
+      btnExcel?.classList.add("active");
+    } else {
+      if (manualForm) manualForm.style.display = "flex";
+      if (excelBox) excelBox.style.display = "none";
+      btnManual?.classList.add("active");
+      btnExcel?.classList.remove("active");
+    }
+  };
+
+  // Excel File Upload & Auto-classification
+  var fileInput = document.getElementById("excelPhanAnhInput");
+  if (fileInput) {
+    fileInput.addEventListener("change", function () {
+      var file = this.files[0];
+      if (!file) return;
+      var banner = document.getElementById("uploadFeedbackBanner");
+      if (banner) {
+        banner.style.display = "block";
+        banner.className = "upload-feedback-banner loading";
+        banner.innerHTML = "⏳ Đang phân tích file Excel và tự động ánh xạ tiêu chí lỗi theo lớp...";
+      }
+      var reader = new FileReader();
+      reader.onload = function (e) {
+        var base64 = e.target.result;
+        var unlock = document.getElementById("unlockForUploadCheck")?.checked;
+        fetch("/api/nhap-phan-anh", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename: file.name, data: base64, unlock: unlock })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+          if (banner) {
+            if (res.ok) {
+              banner.className = "upload-feedback-banner success";
+              banner.innerHTML = "✓ <b>Nạp thành công " + res.events + " lỗi vi phạm của " + res.classes + " lớp!</b> Các mức trừ điểm đã được tự động áp dụng. Đang tải lại dữ liệu...";
+              setTimeout(function () { window.location.reload(); }, 1500);
+            } else {
+              banner.className = "upload-feedback-banner error";
+              banner.innerHTML = "✕ Lỗi nạp file: " + (res.error || res.message || "Không thể xử lý dữ liệu");
+            }
+          }
+        })
+        .catch(function (err) {
+          if (banner) {
+            banner.className = "upload-feedback-banner error";
+            banner.innerHTML = "✕ Lỗi kết nối: " + err.message;
+          }
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  })();
+</script>
 {% endblock %}
 {% block extra %}<script src="/static/js/forms.js"></script>{% endblock %}

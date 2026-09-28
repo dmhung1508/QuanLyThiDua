@@ -8,6 +8,7 @@ import {
   parseReport,
   resolveWeekForWrite,
   saveReport,
+  setTuanStatus,
 } from "./plan.ts";
 
 export type MappedViolation = {
@@ -88,9 +89,13 @@ function cellText(value: unknown): string {
   return String(value).trim();
 }
 
-export async function readPhanAnhWorkbook(filePath: string): Promise<ImportRow[]> {
+export async function readPhanAnhWorkbook(input: string | Buffer): Promise<ImportRow[]> {
   const wb = new ExcelJS.Workbook();
-  await wb.xlsx.readFile(filePath);
+  if (typeof input === "string") {
+    await wb.xlsx.readFile(input);
+  } else {
+    await wb.xlsx.load(input);
+  }
   const rows: ImportRow[] = [];
   for (const sheet of wb.worksheets) {
     sheet.eachRow((row, index) => {
@@ -119,16 +124,20 @@ function fridayOfLocal(value: string) {
   return fridayOf(value);
 }
 
-export async function importPhanAnhFile(con: Db, namId: number, filePath: string): Promise<ImportResult> {
+export async function importPhanAnhFile(con: Db, namId: number, filePath: string, opts?: { unlockIfNeeded?: boolean }): Promise<ImportResult> {
   const rows = await readPhanAnhWorkbook(filePath);
-  return importPhanAnhRows(con, namId, rows);
+  return importPhanAnhRows(con, namId, rows, opts);
 }
 
-export function importPhanAnhRows(con: Db, namId: number, rows: ImportRow[]): ImportResult {
-  return transaction(con, () => importPhanAnhRowsUnlocked(con, namId, rows));
+export async function importPhanAnhBuffer(con: Db, namId: number, buffer: Buffer, opts?: { unlockIfNeeded?: boolean }): Promise<ImportResult> {
+  const rows = await readPhanAnhWorkbook(buffer);
+  return importPhanAnhRows(con, namId, rows, opts);
+}
+export function importPhanAnhRows(con: Db, namId: number, rows: ImportRow[], opts?: { unlockIfNeeded?: boolean }): ImportResult {
+  return transaction(con, () => importPhanAnhRowsUnlocked(con, namId, rows, opts));
 }
 
-function importPhanAnhRowsUnlocked(con: Db, namId: number, rows: ImportRow[]): ImportResult {
+function importPhanAnhRowsUnlocked(con: Db, namId: number, rows: ImportRow[], opts?: { unlockIfNeeded?: boolean }): ImportResult {
   const classes = listLop(con, namId);
   const byTen = new Map(classes.map((lop) => [String(lop.ten).toUpperCase(), lop]));
   const skippedLocked = new Set<string>();
@@ -154,8 +163,16 @@ function importPhanAnhRowsUnlocked(con: Db, namId: number, rows: ImportRow[]): I
   for (const bucket of buckets.values()) {
     const week = resolveWeekForWrite(con, namId, { week_start: bucket.weekStart });
     if (locked(week)) {
-      skippedLocked.add(String(week.ngay_bd || bucket.weekStart));
-      continue;
+      if (opts?.unlockIfNeeded) {
+        if (week.trang_thai === "cong_bo") {
+          setTuanStatus(con, namId, Number(week.id), Number(week.revision), "chot", "Mở khóa nạp phản ánh");
+        }
+        const refreshed = get(con, "SELECT revision FROM tuan WHERE id=?", [week.id]);
+        setTuanStatus(con, namId, Number(week.id), Number(refreshed?.revision ?? 0), "nhap", "Mở khóa nạp phản ánh");
+      } else {
+        skippedLocked.add(String(week.ngay_bd || bucket.weekStart));
+        continue;
+      }
     }
     const existing = loadReport(con, Number(week.id), bucket.lopId);
     const form: Record<string, string> = {

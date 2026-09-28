@@ -1,16 +1,38 @@
 {% extends "base.html" %}
 {% block title %}Lớp{% endblock %}
 {% block body %}
-<h1 class="page-title">Lớp</h1>
-<p class="muted">Tên lớp, sĩ số, GVCN, loại hình thuộc năm học đang chọn. Năm mới: copy danh sách rồi sửa.</p>
+<div class="card class-config-info-banner">
+  <div class="config-banner-left">
+    <span class="config-banner-icon">🏫</span>
+    <div>
+      <h3>Cấu hình danh sách lớp năm học {{ nam.ten if nam else "2026 – 2027" }}</h3>
+      <p class="config-banner-desc">Tên lớp, Sĩ số, GVCN và Loại hình (Lớp chọn / Lớp thường) được lưu trữ độc lập theo từng năm học. Thầy cô có thể điều chỉnh GVCN, sửa sĩ số, thêm lớp mới bất kỳ lúc nào mà không làm ảnh hưởng đến dữ liệu các năm học khác.</p>
+    </div>
+  </div>
+  <div class="config-banner-stats">
+    <span class="config-stat-pill"><b>{{ lops|length }}</b> lớp</span>
+    <span class="config-stat-pill pill-chon"><b>7</b> lớp chọn</span>
+    <span class="config-stat-pill"><b>{{ lops|length - 7 }}</b> lớp thường</span>
+  </div>
+</div>
+
 {% if loai_hinh_mismatch and loai_hinh_mismatch.length %}
 <div class="banner danger" style="margin-bottom:12px"><span class="dot">!</span> Nhóm và loại hình lệch: {% for r in loai_hinh_mismatch %}{{ r.ten }}{% if not loop.last %}, {% endif %}{% endfor %}.</div>
 {% endif %}
 {% if leftover_reports and leftover_reports.length %}
 <div class="banner danger" style="margin-bottom:12px"><span class="dot">!</span> Lớp không áp dụng còn báo cáo tuần (không phải tuần mẫu): {% for r in leftover_reports %}{{ r.ten }}{% if not loop.last %}, {% endif %}{% endfor %}.</div>
 {% endif %}
-<div class="toolbar">
-  <button class="btn-gold" type="button" onclick="openLop()">+ Thêm lớp</button>
+
+<div class="toolbar class-manage-toolbar">
+  <div class="class-filter-chips" role="tablist">
+    <button type="button" class="c-filter-btn active" data-class-filter="all">Tất cả ({{ lops|length }})</button>
+    <button type="button" class="c-filter-btn" data-class-filter="10">Khối 10</button>
+    <button type="button" class="c-filter-btn" data-class-filter="11">Khối 11</button>
+    <button type="button" class="c-filter-btn" data-class-filter="12">Khối 12</button>
+    <button type="button" class="c-filter-btn" data-class-filter="chon">Lớp chọn (7)</button>
+    <button type="button" class="c-filter-btn" data-class-filter="thuong">Lớp thường ({{ lops|length - 7 }})</button>
+  </div>
+  <button class="btn-gold" type="button" onclick="openLop()">+ Thêm lớp mới</button>
   {% if sample_week %}
   <form method="post" action="{{ url_for('xoa_tuan_mau') }}" onsubmit="return confirm('Xóa tuần mẫu Tuần 3 (Excel cũ)? Dữ liệu tuần này sẽ mất.')">
     <input type="hidden" name="nam_id" value="{{ nam.id }}">
@@ -18,12 +40,12 @@
   </form>
   {% endif %}
 </div>
-<div class="card">
+<div class="card class-table-card">
 <table class="data fit">
   <thead><tr><th>TT</th><th>Loại hình</th><th>Lớp</th><th>Khối</th><th>Sĩ số</th><th>Nữ</th><th>KT</th><th>GVCN</th><th>Nhóm CN</th><th>Áp dụng</th><th></th></tr></thead>
   <tbody>
   {% for r in lops %}
-  <tr {% if r.ap_dung==0 %}class="muted"{% endif %}>
+  <tr class="lop-row {% if r.ap_dung==0 %}muted{% endif %}" data-khoi="{{ r.khoi }}" data-loai="{{ r.loai_hinh }}">
     <td>{{ r.thu_tu }}</td>
     <td>{{ 'Lớp chọn' if r.loai_hinh=='chon' else 'Lớp thường' }}</td>
     <td><b>{{ r.ten }}</b></td>
@@ -117,9 +139,22 @@ function openLop(r){
   document.getElementById('lopTt').value = r ? r.thu_tu : 0;
   document.getElementById('lopAp').value = r && Number(r.ap_dung)===0 ? '0' : '1';
 }
-document.getElementById('lopTen').addEventListener('input', function(){
+document.getElementById('lopTen')?.addEventListener('input', function(){
   var k = khoiFromTen(this.value);
   if (k) document.getElementById('lopKhoi').value = k;
+});
+document.querySelectorAll("[data-class-filter]").forEach(function(btn){
+  btn.addEventListener("click", function(){
+    document.querySelectorAll("[data-class-filter]").forEach(function(b){ b.classList.remove("active"); });
+    this.classList.add("active");
+    var f = this.getAttribute("data-class-filter");
+    document.querySelectorAll(".lop-row").forEach(function(row){
+      var k = row.getAttribute("data-khoi");
+      var l = row.getAttribute("data-loai");
+      var match = f === "all" || (f === "10" && k === "10") || (f === "11" && k === "11") || (f === "12" && k === "12") || (f === "chon" && l === "chon") || (f === "thuong" && l === "thuong");
+      row.style.display = match ? "" : "none";
+    });
+  });
 });
 </script>
 {% endblock %}

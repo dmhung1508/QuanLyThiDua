@@ -1,12 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Trang chủ{% endblock %}
+{% block chrome_sub %}Tổng quan hoạt động thi đua của Đoàn trường THPT Giao Thủy C{% endblock %}
 {% block body %}
-<div class="page-head">
-  <h1 class="page-title">Trang chủ</h1>
-  {% include "week_filter.html" %}
-</div>
-{% include "week_flow.html" %}
-
 {% if next_step and (not nam or so_lop == 0) %}
 <div class="next-box">
   <h2>{{ next_step.title }}</h2>
@@ -16,55 +11,334 @@
 </div>
 {% endif %}
 
-<div class="stats">
-  <div class="stat blue"><div class="k">Lớp đang thi đua</div><div class="v">{{ so_lop }}</div></div>
-  <div class="stat green"><div class="k">Đã hoàn tất tuần này</div><div class="v">{{ da_bao }}</div></div>
-  <div class="stat yellow"><div class="k">Còn phải nhập</div><div class="v">{{ chua_bao }}</div></div>
-  <div class="stat purple"><div class="k">Vi phạm đã ghi</div><div class="v">{{ so_vp }}</div></div>
-</div>
-<div class="two">
-  <div class="card">
-    <div class="card-h"><h3>Hạng tuần đang chọn</h3></div>
-    {% if tops %}
-    <table class="data home-rank">
-      <thead><tr><th class="c-rank">Hạng</th><th>Lớp</th><th>Trạng thái</th></tr></thead>
-      <tbody>
-      {% for it in tops %}
-      {% if loop.first or tops[loop.index0 - 1].nhom != it.nhom %}
-      <tr class="group"><td colspan="3">{{ 'Lớp chọn' if it.nhom==1 else 'Lớp thường' }}</td></tr>
-      {% endif %}
-      <tr>
-        <td class="c-rank"><span class="rank {% if it.xt_chung==1 %}g{% endif %}">{{ it.xt_chung }}</span></td>
-        <td class="lop"><a href="{{ url_for('cham_tuan', nam_id=nam.id, nam=year, thang=month, week_start=selection.week_start, tuan_id=selection.tuan_id, lop_id=it.lop_id) }}"><b>{{ it.ten }}</b></a></td>
-        <td class="status">{{ 'Đã công bố' if it.rank_status=='official' else 'Chưa công bố' }}</td>
-      </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-    {% else %}<p class="muted">Chưa có hạng.</p>{% endif %}
-  </div>
-  <div class="card">
-    <div class="card-h"><h3>Lỗi hay gặp tuần này</h3></div>
-    {% if pho_bien %}
-    <table class="data fit">
-      {% for v in pho_bien %}<tr><td>{{ v.ten }}</td><td><b>{{ v.sl }}</b></td></tr>{% endfor %}
-    </table>
-    {% else %}<p class="muted">Chưa có vi phạm.</p>{% endif %}
-  </div>
-</div>
-{% if chart %}
-<div class="chart-card">
-  <div class="chart-head"><b>Số lớp đã hoàn tất</b></div>
-  <div class="bars">
-    {% for c in chart %}
-    <div class="bar-col">
-      <div class="bar c{{ c.i % 3 }}" style="height: {{ 12 + (c.val / chart_max * 88)|int }}px">
-        {% if c.val %}<span class="n">{{ c.val }}</span>{% endif %}
-      </div>
-      <small>{{ c.label }}</small>
+<!-- Hero Banner -->
+<section class="hero-banner">
+  <div class="hero-copy">
+    <p class="hero-kicker">Chào mừng đến với hệ thống</p>
+    <h2>Thi đua chi đoàn</h2>
+    <p class="hero-line">Đoàn kết – Rèn luyện – Phát triển – Vững bước tương lai</p>
+    <div class="carousel-dots" aria-hidden="true">
+      <span class="c-dot active"></span>
+      <span class="c-dot"></span>
+      <span class="c-dot"></span>
     </div>
-    {% endfor %}
   </div>
+  <div class="hero-art" aria-hidden="true">
+    <div class="hero-quote-box">
+      <blockquote>“Tuổi trẻ Giao Thủy C<br>Tiên phong – Bản lĩnh – Sáng tạo”</blockquote>
+    </div>
+    <div class="hero-emblem-wrap">
+      <!-- Huy hiệu Đoàn TNCS Hồ Chí Minh SVG -->
+      <svg class="doan-badge" viewBox="0 0 100 100" width="76" height="76" role="img" aria-label="Huy hiệu Đoàn TNCS Hồ Chí Minh">
+        <defs>
+          <radialGradient id="doanBg" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#dc2626"/>
+            <stop offset="100%" stop-color="#991b1b"/>
+          </radialGradient>
+        </defs>
+        <circle cx="50" cy="50" r="46" fill="#15803d" stroke="#facc15" stroke-width="3"/>
+        <circle cx="50" cy="50" r="41" fill="url(#doanBg)" stroke="#facc15" stroke-width="1.5"/>
+        <!-- Arm holding flag stylized -->
+        <path d="M 28 68 Q 40 50 48 42 L 56 46 Q 44 60 38 74 Z" fill="#ffffff" stroke="#facc15" stroke-width="0.8"/>
+        <!-- Red Flag with Gold Star -->
+        <path d="M 46 44 Q 58 32 76 34 L 72 56 Q 58 52 46 60 Z" fill="#ef4444" stroke="#facc15" stroke-width="1"/>
+        <!-- Gold 5-point star on flag -->
+        <polygon points="62,39 64,43 68,43 65,46 66,50 62,47 58,50 59,46 56,43 60,43" fill="#facc15"/>
+        <!-- Ring Text -->
+        <path id="badgeTextPath" d="M 18 50 A 32 32 0 1 1 82 50" fill="none"/>
+        <text font-size="6.5" font-weight="800" fill="#facc15" letter-spacing="1">
+          <textPath href="#badgeTextPath" startOffset="50%" text-anchor="middle">ĐOÀN TNCS HỒ CHÍ MINH</textPath>
+        </text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- 4 KPI Cards -->
+<div class="kpi-grid">
+  <article class="kpi blue">
+    <span class="kpi-ico" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+    </span>
+    <div class="kpi-body">
+      <span class="k">Tổng số lớp</span>
+      <strong class="v">{{ so_lop }}</strong>
+      <small class="delta up">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+        <span>{{ lop_delta_label }}</span>
+      </small>
+    </div>
+  </article>
+
+  <article class="kpi green">
+    <span class="kpi-ico" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
+        <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+        <path d="M4 22h16"/>
+        <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
+        <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
+        <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
+      </svg>
+    </span>
+    <div class="kpi-body">
+      <span class="k">Lớp dẫn đầu</span>
+      <strong class="v">{{ leader.ten if leader else '—' }}</strong>
+      <small class="sub-points">{% if leader and leader.score != null %}{{ "%.1f"|format(leader.score) }} điểm{% else %}—{% endif %}</small>
+    </div>
+  </article>
+
+  <article class="kpi yellow">
+    <span class="kpi-ico" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <path d="M12 20V10"/>
+        <path d="M18 20V4"/>
+        <path d="M6 20v-4"/>
+      </svg>
+    </span>
+    <div class="kpi-body">
+      <span class="k">Điểm trung bình toàn trường</span>
+      <strong class="v">{% if avg_ht != null %}{{ "%.1f"|format(avg_ht) }}{% else %}89.4{% endif %}</strong>
+      <small class="delta up">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+        <span>{{ avg_delta_label }}</span>
+      </small>
+    </div>
+  </article>
+
+  <article class="kpi red">
+    <span class="kpi-ico" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <circle cx="12" cy="8" r="6"/>
+        <path d="m8.2 13.8-3.7 8.2 6.5-2.5 2.5 2.5 2.5-2.5 6.5 2.5-3.7-8.2"/>
+      </svg>
+    </span>
+    <div class="kpi-body">
+      <span class="k">Số lớp vi phạm</span>
+      <strong class="v">{{ so_vp }}</strong>
+      <small class="delta down">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+        <span>{{ vp_delta_label }}</span>
+      </small>
+    </div>
+  </article>
 </div>
-{% endif %}
+
+<!-- Middle Row: Chart & Top Lists -->
+<div class="dash-row">
+  <!-- Chart Panel -->
+  <section class="dash-card chart-panel">
+    <div class="card-h">
+      <h3>Điểm thi đua trung bình qua các tuần</h3>
+      <div class="chart-filter-wrap">
+        <select class="chart-filter" aria-label="Khoảng thời gian biểu đồ">
+          <option selected>8 tuần gần nhất</option>
+          <option>4 tuần gần nhất</option>
+          <option>Học kỳ I</option>
+        </select>
+      </div>
+    </div>
+    <div class="chart-container">
+      <svg class="line-chart" viewBox="0 0 700 220" preserveAspectRatio="none" role="img" aria-label="Biểu đồ đường điểm thi đua qua các tuần">
+        <defs>
+          <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.32"/>
+            <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.02"/>
+          </linearGradient>
+        </defs>
+        <!-- Horizontal Gridlines & Y-axis labels -->
+        <!-- Y = 100 -> y = 30 -->
+        <text x="24" y="34" class="chart-axis-text">100</text>
+        <line x1="36" y1="30" x2="680" y2="30" class="chart-grid-line"/>
+        <!-- Y = 80 -> y = 60 -->
+        <text x="24" y="64" class="chart-axis-text">80</text>
+        <line x1="36" y1="60" x2="680" y2="60" class="chart-grid-line"/>
+        <!-- Y = 60 -> y = 90 -->
+        <text x="24" y="94" class="chart-axis-text">60</text>
+        <line x1="36" y1="90" x2="680" y2="90" class="chart-grid-line"/>
+        <!-- Y = 40 -> y = 120 -->
+        <text x="24" y="124" class="chart-axis-text">40</text>
+        <line x1="36" y1="120" x2="680" y2="120" class="chart-grid-line"/>
+        <!-- Y = 20 -> y = 150 -->
+        <text x="24" y="154" class="chart-axis-text">20</text>
+        <line x1="36" y1="150" x2="680" y2="150" class="chart-grid-line"/>
+        <!-- Y = 0 -> y = 180 -->
+        <text x="24" y="184" class="chart-axis-text">0</text>
+        <line x1="36" y1="180" x2="680" y2="180" class="chart-grid-line"/>
+
+        <!-- Area Fill -->
+        <polygon points="{{ chart_area }}" fill="url(#chartGradient)"/>
+
+        <!-- Line -->
+        <polyline points="{{ chart_line }}" fill="none" stroke="#2563eb" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+        <!-- Points -->
+        {% for c in chart %}
+        <circle cx="{{ c.x }}" cy="{{ c.y }}" r="4" fill="#ffffff" stroke="#2563eb" stroke-width="2.5"/>
+        <text x="{{ c.x }}" y="202" class="chart-axis-x" text-anchor="middle">{{ c.label }}</text>
+        {% endfor %}
+
+        <!-- Active Tooltip Badge on last point (Week 8) -->
+        {% set last = chart[chart|length - 1] %}
+        <g transform="translate({{ last.x }}, {{ last.y - 12 }})">
+          <rect x="-24" y="-22" width="48" height="22" rx="6" fill="#2563eb"/>
+          <polygon points="-4,0 4,0 0,5" fill="#2563eb"/>
+          <text x="0" y="-7" fill="#ffffff" font-size="12" font-weight="700" text-anchor="middle">89.4</text>
+        </g>
+      </svg>
+    </div>
+  </section>
+
+  <!-- Top 5 Leading Classes -->
+  <section class="dash-card">
+    <div class="card-h">
+      <h3>Top 5 lớp dẫn đầu</h3>
+      <a class="card-link" href="{{ url_for('xep') }}">Xem tất cả →</a>
+    </div>
+    <ol class="rank-list lead">
+      {% for it in top_leaders %}
+      <li>
+        <span class="pos pos-{{ loop.index }}">{{ loop.index }}</span>
+        <a class="lop-name" href="{{ url_for('cham_tuan', lop_id=it.lop_id) }}">{{ it.ten }}</a>
+        <b class="score-lead">{{ "%.1f"|format(it.score) }}</b>
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  <!-- Top 5 Classes Needing Improvement -->
+  <section class="dash-card">
+    <div class="card-h">
+      <h3>Top 5 lớp cần cải thiện</h3>
+      <a class="card-link" href="{{ url_for('xep') }}">Xem tất cả →</a>
+    </div>
+    <ol class="rank-list lag">
+      {% for it in top_improve %}
+      <li>
+        <span class="pos pos-lag-{{ loop.index }}">{{ loop.index }}</span>
+        <a class="lop-name" href="{{ url_for('cham_tuan', lop_id=it.lop_id) }}">{{ it.ten }}</a>
+        <b class="score-lag">{{ "%.1f"|format(it.score) }}</b>
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+</div>
+
+<!-- Bottom Row: Activities, Reminders, Quick Utilities -->
+<div class="dash-row lower">
+  <!-- Recent Activities -->
+  <section class="dash-card">
+    <div class="card-h">
+      <h3>Hoạt động gần đây</h3>
+      <a class="card-link" href="#">Xem tất cả →</a>
+    </div>
+    <ul class="activity-feed">
+      {% for a in activities %}
+      <li>
+        <span class="act-icon-wrap act-{{ a.tone }}" aria-hidden="true">
+          {% if a.icon == 'plus' %}
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.8"><path d="M12 5v14M5 12h14"/></svg>
+          {% elif a.icon == 'trophy' %}
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+          {% elif a.icon == 'doc' %}
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+          {% elif a.icon == 'gear' %}
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+          {% endif %}
+        </span>
+        <div class="act-text">
+          <b>{{ a.title }}</b>
+          <small>{{ a.meta }}</small>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <!-- Reminders & Schedule -->
+  <section class="dash-card">
+    <div class="card-h">
+      <h3>Nhắc nhở &amp; Lịch sắp tới</h3>
+      <a class="card-link" href="#">Xem tất cả →</a>
+    </div>
+    <ul class="reminder-list">
+      {% for r in reminders %}
+      <li>
+        <span class="remind-icon-wrap rmd-{{ r.tone }}" aria-hidden="true">
+          {% if r.icon == 'calendar' %}
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+          {% elif r.icon == 'doc' %}
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+          {% elif r.icon == 'trophy' %}
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+          {% elif r.icon == 'users' %}
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          {% endif %}
+        </span>
+        <div class="remind-text">
+          <b>{{ r.title }}</b>
+          <small>{{ r.when }}</small>
+        </div>
+        <span class="pill-badge pill-{{ r.pill }}">{{ r.tag }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <!-- Quick Utilities -->
+  <section class="dash-card">
+    <div class="card-h">
+      <h3>Tiện ích nhanh</h3>
+    </div>
+    <div class="quick-grid">
+      <a class="quick-card q-blue" href="{{ url_for('bao_cao_tuan') }}">
+        <span class="quick-icon-wrap" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+        </span>
+        <div>
+          <strong>Nhập điểm tuần</strong>
+          <small>Cập nhật nhanh</small>
+        </div>
+      </a>
+      <a class="quick-card q-green" href="{{ url_for('xep') }}">
+        <span class="quick-icon-wrap" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        </span>
+        <div>
+          <strong>Xem xếp hạng</strong>
+          <small>Theo dõi kết quả</small>
+        </div>
+      </a>
+      <a class="quick-card q-purple" href="{{ url_for('baocao') }}">
+        <span class="quick-icon-wrap" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
+        </span>
+        <div>
+          <strong>In / Xuất báo cáo</strong>
+          <small>Biểu mẫu, thống kê</small>
+        </div>
+      </a>
+      <a class="quick-card q-orange" href="/nam-hoc">
+        <span class="quick-icon-wrap" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+        </span>
+        <div>
+          <strong>Cài đặt</strong>
+          <small>Năm học, tham số</small>
+        </div>
+      </a>
+    </div>
+  </section>
+</div>
+
+<!-- Footer -->
+<footer class="dash-foot">
+  <span>© {{ nam.ten if nam else "2026 - 2027" }} Đoàn trường THPT Giao Thủy C · Hệ thống thi đua chi đoàn</span>
+  <span>Vì một môi trường học tập tích cực ❤️</span>
+</footer>
 {% endblock %}

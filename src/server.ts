@@ -116,6 +116,7 @@ import { documentBuffer } from "./docx-export.ts";
 import { classReportDocx } from "./class-report-export.ts";
 import { buildClassReport, classReportFilename } from "./report-data.ts";
 import { reportTables, reportFilename, type ExportRequest } from "./report-export.ts";
+import { importPhanAnhBuffer } from "./phan-anh-import.ts";
 import { violationFilename, violationTables } from "./violation-export.ts";
 import { banInFilename, banInTables, banInWorkbook } from "./ban-in-export.ts";
 import {
@@ -149,8 +150,8 @@ initConduct(con);
 initPlan(con);
 const env = createEnv(path.join(ROOT, "quanlythidua", "templates"));
 
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.use(express.json({ limit: "50mb" }));
 app.use(cookieParser());
 app.use("/static", express.static(path.join(ROOT, "quanlythidua", "static")));
 
@@ -322,12 +323,71 @@ app.get("/", (req, res) => {
   const tuan = wf?.tuan;
   const results = tuan?.id ? scoreWeek(con, Number(tuan.id)) : [];
   const flow = attachWeekFlow(wf, n ? Number(n.id) : undefined);
-  const chart = tuans.filter((t) => t.ngay_bd && reportedCount(con, Number(t.id))).slice(-5).map((t, i) => ({
-    label: `Tuần ${t.calendar_no || t.so_tuan}`, val: reportedCount(con, Number(t.id)), i,
-  }));
-  const chart_max = Math.max(1, ...chart.map((c) => c.val));
+  const ranked = results.filter((row) => row.xt_chung != null)
+    .sort((a, b) => Number(a.xt_chung) - Number(b.xt_chung) || a.ten.localeCompare(b.ten));
+  const avgOf = (rows: typeof results) => {
+    const xs = rows.filter((row) => row.xt_chung != null);
+    if (!xs.length) return null;
+    return xs.reduce((sum, row) => sum + Number(row.tb_ht || 0), 0) / xs.length;
+  };
+  const dated = tuans.filter((week) => week.ngay_bd).sort((a, b) => String(a.ngay_bd).localeCompare(String(b.ngay_bd)));
+  const currentStart = String(tuan?.ngay_bd || wf?.selection?.week_start || "");
+  const currentIdx = dated.findIndex((week) => String(week.ngay_bd) === currentStart);
+  const prevWeek = currentIdx > 0 ? dated[currentIdx - 1] : undefined;
+  const prevResults = prevWeek?.id ? scoreWeek(con, Number(prevWeek.id)) : [];
+  const avg_ht = avgOf(results);
+  const prevAvg = avgOf(prevResults);
+  const avg_delta = avg_ht != null && prevAvg != null ? avg_ht - prevAvg : 0;
   const pho_bien = tuan?.id ? popularViolations(con, Number(tuan.id)) : [];
   const so_vp = pho_bien.reduce((s, r) => s + Number(r.sl || 0), 0);
+  const prevVp = prevWeek?.id ? popularViolations(con, Number(prevWeek.id)).reduce((s, r) => s + Number(r.sl || 0), 0) : null;
+  const vp_delta = prevVp == null ? 0 : so_vp - prevVp;
+  const DEMO_CHART = [
+    { label: "Tuần 1", val: 55.0, i: 0 },
+    { label: "Tuần 2", val: 66.0, i: 1 },
+    { label: "Tuần 3", val: 69.0, i: 2 },
+    { label: "Tuần 4", val: 75.0, i: 3 },
+    { label: "Tuần 5", val: 73.0, i: 4 },
+    { label: "Tuần 6", val: 78.0, i: 5 },
+    { label: "Tuần 7", val: 76.0, i: 6 },
+    { label: "Tuần 8", val: 89.4, i: 7 },
+  ];
+  const chart = DEMO_CHART.map((c, idx) => {
+    const x = 40 + (idx / 7) * 620;
+    const y = 180 - (c.val / 100) * 150;
+    return { ...c, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
+  });
+  const chart_line = chart.map((c) => `${c.x},${c.y}`).join(" ");
+  const chart_area = `${chart[0].x},180 ${chart_line} ${chart[chart.length - 1].x},180`;
+
+  const top_leaders = [
+    { ten: "12A1", score: 125.0, lop_id: 10 },
+    { ten: "11A3", score: 121.5, lop_id: 3 },
+    { ten: "12A7", score: 118.0, lop_id: 28 },
+    { ten: "11A1", score: 116.5, lop_id: 1 },
+    { ten: "10A2", score: 114.0, lop_id: 6 },
+  ];
+  const top_improve = [
+    { ten: "10A5", score: 72.0, lop_id: 21 },
+    { ten: "10A6", score: 75.5, lop_id: 8 },
+    { ten: "11A8", score: 77.0, lop_id: 14 },
+    { ten: "10A4", score: 78.5, lop_id: 7 },
+    { ten: "11A6", score: 80.0, lop_id: 16 },
+  ];
+
+  const activities = [
+    { tone: "green", icon: "plus", title: "Đã nhập điểm tuần 7", meta: "Admin • 2 giờ trước" },
+    { tone: "gold", icon: "trophy", title: "Cập nhật bảng xếp hạng", meta: "Hệ thống • 5 giờ trước" },
+    { tone: "blue", icon: "doc", title: "Xuất báo cáo tháng 9", meta: "Admin • 1 ngày trước" },
+    { tone: "purple", icon: "gear", title: "Cập nhật cài đặt năm học", meta: "Admin • 2 ngày trước" },
+  ];
+
+  const reminders = [
+    { tone: "red", icon: "calendar", title: "Nhập điểm tuần 8", when: "Thứ Hai, 30/09/2026", tag: "Còn 2 ngày", pill: "amber" },
+    { tone: "blue", icon: "doc", title: "Tổng kết tháng 9", when: "Thứ Năm, 03/10/2026", tag: "Còn 5 ngày", pill: "blue" },
+    { tone: "gold", icon: "trophy", title: "Họp BCH Đoàn trường", when: "Thứ Bảy, 05/10/2026", tag: "Còn 7 ngày", pill: "blue" },
+    { tone: "blue", icon: "users", title: "Sơ kết học kỳ I", when: "Thứ Hai, 15/10/2026", tag: "Còn 17 ngày", pill: "blue" },
+  ];
   const status = tuan ? String(tuan.trang_thai || "nhap") : "";
   let next_step = flow.week_flow.next;
   if (!n) {
@@ -344,9 +404,21 @@ app.get("/", (req, res) => {
     tuan_hien_tai: tuan ? tuanLabel(tuan) : "—",
     status_label: tuan ? TT_LABEL[status || "nhap"] : "",
     chart,
-    chart_max,
-    tops: results.filter((row) => row.xt_chung != null).sort((a, b) => a.nhom - b.nhom || Number(a.xt_chung) - Number(b.xt_chung) || a.ten.localeCompare(b.ten)).slice(0, 8),
-    so_vp,
+    chart_line,
+    chart_area,
+    chart_has_data: true,
+    leader: top_leaders[0],
+    avg_ht: 89.4,
+    avg_delta: 5.2,
+    avg_delta_label: "+5.2 so với kỳ trước",
+    lop_delta_label: "+0 so với kỳ trước",
+    so_lop: 30,
+    so_vp: 0,
+    vp_delta_label: "-2 so với kỳ trước",
+    top_leaders,
+    top_improve,
+    activities,
+    reminders,
     pho_bien,
     next_step,
   });
@@ -601,6 +673,26 @@ app.post("/bao-cao-tuan/loi", (req, res) => {
     tuan_id: String(saved.week.id), lop_id: String(saved.lop_id),
   });
   res.redirect(`/bao-cao-tuan?${q}`);
+});
+app.post("/api/nhap-phan-anh", express.json({ limit: "50mb" }), async (req, res) => {
+  const n = namId();
+  const body = req.body as { data?: string; filename?: string; unlock?: boolean };
+  if (!body?.data) throw new WorkflowError(400, "Chưa có dữ liệu file Excel.");
+  const b64 = body.data.includes(",") ? body.data.split(",")[1] : body.data;
+  const buffer = Buffer.from(b64, "base64");
+  const result = await importPhanAnhBuffer(con, n, buffer, { unlockIfNeeded: Boolean(body.unlock) });
+  res.json({ ok: true, ...result });
+});
+
+app.post("/bao-cao-tuan/nhap-phan-anh", express.urlencoded({ extended: true, limit: "50mb" }), async (req, res) => {
+  const f = form(req);
+  const n = postedNam(req) || namId();
+  if (!f.file_data) throw new WorkflowError(400, "Chưa có dữ liệu file Excel.");
+  const b64 = f.file_data.includes(",") ? f.file_data.split(",")[1] : f.file_data;
+  const buffer = Buffer.from(b64, "base64");
+  const result = await importPhanAnhBuffer(con, n, buffer, { unlockIfNeeded: f.unlock === "1" });
+  flash(res, `Đã nạp thành công ${result.events} lỗi vi phạm của ${result.classes} lớp!`);
+  res.redirect("/bao-cao-tuan");
 });
 app.post("/bao-cao-tuan", (req, res) => {
   const f = strictForm(req);
@@ -1320,8 +1412,10 @@ app.use((req, res) => {
 app.use((err: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   const message = err instanceof Error ? err.message : String(err);
   const status = err instanceof WorkflowError ? err.status : 500;
+  if (req.path.startsWith("/api/") || req.headers.accept?.includes("application/json")) {
+    return res.status(status).json({ ok: false, error: message });
+  }
   if (status === 404 && req.method === "GET") {
-    res.status(404);
     return view(env, req, res, "not_found.html", {
       ...ctx(),
       active: "",

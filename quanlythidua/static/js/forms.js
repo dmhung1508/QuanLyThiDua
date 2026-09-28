@@ -119,6 +119,8 @@
   }
 
   function selectedDay(composer) {
+    const sel = composer.querySelector("select[data-composer-day], .composer-day-select");
+    if (sel && sel.value) return sel.value;
     return composer.querySelector(".chip.on")?.dataset.day || lastDay || days[0]?.value || "";
   }
 
